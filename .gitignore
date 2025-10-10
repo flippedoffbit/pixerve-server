@@ -1,0 +1,30 @@
+# Ignore compiled binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.out
+*.test  
+pixerve
+# Ignore Go workspace files
+go.work
+go.work.sum
+# Ignore dependency directories
+vendor/
+# Ignore IDE/editor specific files
+.vscode/
+.idea/
+*.swp
+*~
+# Ignore OS generated files
+.DS_Store
+Thumbs.db
+# Ignore log files
+*.log
+# Ignore coverage files
+coverage.out
+# Ignore build directories
+build/
+bin/
+pkg/
