@@ -1,46 +1,51 @@
 {
-  "completionCallback": "https://api.maindb.com/image/callback",
-
-  "priority": 0, // 0 = realtime (blocking), 1 = queued (async)
-
-  "keepOriginal": true, // keep uploaded source image in storage
-
-  "formats": {
-    "jpg": {
-      "settings": {
-        "quality": 80, // acceptable compression ratio
-        "speed": 11    // 0=best quality, 11=fastest (encoder-specific)
-      },
-      "sizes": [
-        [128, 256],   // explicit width x height
-        [256]         // shorthand: square, 256x256
-      ]
+  "iss": "pixerve.issuer.service",
+  "sub": "upload-job",
+  "iat": 1696935600,
+  "exp": 1696939200,
+  "job": {
+    "completionCallback": "https://api.maindb.com/callback",
+    "callbackHeaders": {
+      "X-Auth": "token"
     },
-    "webp": {
-      "settings": {
-        "quality": 85,
-        "speed": 4
+    "priority": 1,
+    "keepOriginal": true,
+    "formats": {
+      "jpg": {
+        "settings": {
+          "quality": 80,
+          "speed": 10
+        },
+        "sizes": [
+          [128, 256],
+          [256]
+        ]
       },
-      "sizes": [[512, 512]]
-    }
-  },
-
-  "storage": {
-    "directHost": true, // host under Pixerve’s /images route (local FS)
-    "s3": {
-      "enabled": false,
-      "key": "S3_KEY",
-      "secret": "S3_SECRET",
-      "region": "us-east-1",
-      "bucket": "pixerve-images",
-      "dir": "products/sku123/"
+      "webp": {
+        "settings": {
+          "quality": 85,
+          "speed": 6
+        },
+        "sizes": [
+          [512, 512],
+          [256]
+        ]
+      },
+      "avif": {
+        "settings": {
+          "quality": 90,
+          "speed": 4
+        },
+        "sizes": [
+          [1024, 512]
+        ]
+      }
     },
-    "sftp": {
-      "enabled": false,
-      "username": "username",
-      "password": "password",
-      "host": "ftp.example.com",
-      "dir": "/uploads/"
-    }
+    "storageKeys": {
+      "s3": "abc123-randomkey",
+      "sftp": "def456-randomkey"
+    },
+    "directHost": true,
+    "subDir": "tenant1"
   }
 }
