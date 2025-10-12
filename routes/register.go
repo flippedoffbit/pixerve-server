@@ -7,6 +7,13 @@ import (
 	"github.com/cockroachdb/pebble"
 )
 
+type S3Credentials struct {
+	AccessKeyID     string `json:"access_key_id"`
+	SecretAccessKey string `json:"secret_access_key"`
+	Region          string `json:"region"`
+	BucketName      string `json:"bucket_name"`
+}
+
 func RegisterS3CredentialsHandler(w http.ResponseWriter, r *http.Request) {
 	db, err := pebble.Open("s3credentials.store", &pebble.Options{})
 
@@ -22,4 +29,5 @@ func RegisterS3CredentialsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	//db.Set()
 }

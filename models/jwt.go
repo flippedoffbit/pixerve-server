@@ -1,4 +1,4 @@
-package pixerve
+package models
 
 type PixerveJWT struct {
 	Issuer    string  `json:"iss"` // optional

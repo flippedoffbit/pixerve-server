@@ -1,0 +1,112 @@
+// ============================================
+// TYPESCRIPT: JWT Creation Function
+// ============================================
+
+// Install: npm install jose
+
+import * as jose from 'jose';
+
+export interface PixerveJWT {
+    iss?: string;
+    sub: string;
+    iat: number;
+    exp: number;
+    job: JobSpec;
+}
+
+export interface JobSpec {
+    completionCallback: string;
+    callbackHeaders?: Record<string, string>;
+    priority: number; // 0 = realtime, 1 = queued
+    keepOriginal: boolean;
+    formats: Record<string, FormatSpec>;
+    storageKeys?: Record<string, string>;
+    directHost?: boolean;
+    subDir?: string;
+}
+
+export interface FormatSpec {
+    settings: FormatSettings;
+    sizes: number[][]; // [[W,H], [square]]
+}
+
+export interface FormatSettings {
+    quality: number; // 1-100
+    speed: number;
+}
+
+// Create JWT with HMAC (HS256)
+export async function createPixerveJWT (
+    payload: Omit<PixerveJWT, 'iat' | 'exp'>,
+    secretKey: string,
+    expiresInSeconds: number = 3600
+): Promise<string> {
+    const secret = new TextEncoder().encode(secretKey);
+
+    const jwt = await new jose.SignJWT({
+        ...payload,
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + expiresInSeconds,
+    })
+        .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
+        .sign(secret);
+
+    return jwt;
+}
+
+// Create JWT with RSA (RS256)
+export async function createPixerveJWTWithRSA (
+    payload: Omit<PixerveJWT, 'iat' | 'exp'>,
+    privateKey: string, // PEM format
+    expiresInSeconds: number = 3600
+): Promise<string> {
+    const key = await jose.importPKCS8(privateKey, 'RS256');
+
+    const jwt = await new jose.SignJWT({
+        ...payload,
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + expiresInSeconds,
+    })
+        .setProtectedHeader({ alg: 'RS256', typ: 'JWT' })
+        .sign(key);
+
+    return jwt;
+}
+
+// Example usage:
+async function example () {
+    const token = await createPixerveJWT(
+        {
+            iss: 'pixerve-api',
+            sub: 'image-job-123',
+            job: {
+                completionCallback: 'https://api.example.com/callback',
+                callbackHeaders: {
+                    'Authorization': 'Bearer token123',
+                },
+                priority: 1,
+                keepOriginal: true,
+                formats: {
+                    webp: {
+                        settings: { quality: 85, speed: 4 },
+                        sizes: [ [ 800, 600 ], [ 400 ] ],
+                    },
+                    avif: {
+                        settings: { quality: 80, speed: 6 },
+                        sizes: [ [ 1920, 1080 ] ],
+                    },
+                },
+                storageKeys: {
+                    s3: 'abc123',
+                    sftp: 'def456',
+                },
+                directHost: true,
+                subDir: 'tenant-001',
+            },
+        },
+        'your-secret-key-here',
+        3600 // 1 hour
+    );
+
+    console.log('JWT:', token);
+}

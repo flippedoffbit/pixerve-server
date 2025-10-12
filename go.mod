@@ -2,7 +2,10 @@ module pixerve
 
 go 1.25.2
 
-require github.com/cockroachdb/pebble v1.1.5
+require (
+	github.com/cockroachdb/pebble v1.1.5
+	github.com/go-jose/go-jose/v4 v4.1.3
+)
 
 require (
 	github.com/DataDog/zstd v1.4.5 // indirect
