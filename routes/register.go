@@ -20,15 +20,41 @@ type S3Credentials struct {
 	BucketName      string `json:"bucket_name"`
 }
 
-func OpenDB() error {
+func OpenCredentialsDB() error {
 
 	var err error
+
 	db, err = pebble.Open(credentialsDataFile, &pebble.Options{})
+
 	if err != nil {
 		logger.Fatalf("Failed to open Pebble DB: %v", err)
 		return err
 	}
 	return nil
+}
+
+func DeregisterCredentialsHandler(w http.ResponseWriter, r *http.Request) {
+
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	keyString := r.URL.Query().Get("access_key")
+
+	if keyString == "" {
+		http.Error(w, "Missing access_key parameter", http.StatusBadRequest)
+		return
+	}
+
+	err := db.Delete([]byte(keyString), pebble.Sync)
+
+	if err != nil {
+		http.Error(w, "Failed to delete credentials", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func RegisterCredentialsHandler(w http.ResponseWriter, r *http.Request) {

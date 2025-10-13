@@ -5,7 +5,8 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
+
+	"pixerve/logger"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -40,7 +41,7 @@ func UploadToS3WithCreds(ctx context.Context, accessInfo map[string]string, read
 		return fmt.Errorf("failed to upload object %s to bucket %s: %w", key, bucket, err)
 	}
 
-	log.Printf("Successfully uploaded object '%s' to bucket '%s'\n", key, bucket)
+	logger.Infof("Successfully uploaded object '%s' to bucket '%s'", key, bucket)
 	return nil
 }
 
@@ -69,6 +70,6 @@ func UseUploadToS3WithCredsExample() {
 	// Call the self-contained upload function.
 	err := UploadToS3WithCreds(context.TODO(), accessInfo, reader)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 }

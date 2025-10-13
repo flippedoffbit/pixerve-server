@@ -5,7 +5,8 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
-	"log"
+
+	"pixerve/logger"
 
 	"cloud.google.com/go/storage"
 	"google.golang.org/api/option"
@@ -43,6 +44,6 @@ func UploadToGCSWithJSON(ctx context.Context, accessInfo map[string]string, read
 		return fmt.Errorf("Writer.Close: %w", err)
 	}
 
-	log.Printf("Successfully uploaded object '%s' to bucket '%s'\n", objectName, bucketName)
+	logger.Infof("Successfully uploaded object '%s' to bucket '%s'", objectName, bucketName)
 	return nil
 }
