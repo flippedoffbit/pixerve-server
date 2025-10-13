@@ -2,8 +2,8 @@ package encoder
 
 import (
 	"context"
-	"log"
 	"os/exec"
+	"pixerve/logger"
 )
 
 // EncodeFunc is the function signature for any encoder
@@ -21,11 +21,11 @@ var Registry = map[string]EncodeFunc{}
 // Register adds encoder if the underlying command exists, logs status
 func Register(format string, cmdName string, fn EncodeFunc) {
 	if _, err := exec.LookPath(cmdName); err != nil {
-		log.Printf("encoder [%s] skipped: command '%s' not found in PATH", format, cmdName)
+		logger.Warnf("encoder [%s] skipped: command '%s' not found in PATH", format, cmdName)
 		return
 	}
 	Registry[format] = fn
-	log.Printf("encoder [%s] registered (command: %s)", format, cmdName)
+	logger.Debugf("encoder [%s] registered (command: %s)", format, cmdName)
 }
 
 // Lookup encoder by format
