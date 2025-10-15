@@ -18,6 +18,7 @@ a small, efficient image worker you can host, shape, and extend however you like
 ## 🌟 Current Features
 
 ### ✅ Core Functionality
+
 - **JWT-Based Authentication**: Secure upload authorization with structured job specifications
 - **Multi-Format Conversion**: Support for JPG, PNG, WebP, AVIF, and lossless copying
 - **Multiple Storage Backends**: S3, Google Cloud Storage, SFTP, and direct HTTP serving
@@ -26,11 +27,13 @@ a small, efficient image worker you can host, shape, and extend however you like
 - **Structured Logging**: Custom logger with console and file output support
 
 ### ✅ API Endpoints
+
 - `POST /upload` - Upload images with JWT authentication
 - `GET /failures?hash=<sha256>` - Check processing status for uploaded files
 - `GET /failures/list` - Admin endpoint for listing all failures
 
 ### ✅ Job Specification (JWT Payload)
+
 ```json
 {
   "iss": "your-app",
@@ -67,12 +70,14 @@ a small, efficient image worker you can host, shape, and extend however you like
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - Go 1.21+
 - ImageMagick (`magick` command) for JPG/PNG conversion
 - `cwebp` for WebP conversion  
 - `avifenc` for AVIF conversion
 
 ### Installation
+
 ```bash
 git clone https://github.com/yourusername/pixerve.git
 cd pixerve
@@ -80,14 +85,36 @@ go mod download
 ```
 
 ### Configuration
+
+#### JWT Secret
+
 Set the JWT secret in `config/jwt_secret.go`:
+
 ```go
 package config
 
 const SHARED_JWT_SECRET = "your-256-bit-secret"
 ```
 
+#### Data Directory
+
+Pixerve stores its databases (credentials and failure tracking) in a configurable data directory. By default, it uses `./data` relative to the executable.
+
+**Environment Variable:**
+
+```bash
+export PIXERVE_DATA_DIR="/path/to/your/data/directory"
+```
+
+**Default Behavior:**
+
+- Credentials database: `./data/credentials.db`
+- Failures database: `./data/failures.db`
+
+The data directory and its subdirectories will be created automatically on first run.
+
 ### Running
+
 ```bash
 go run main.go
 ```
@@ -103,17 +130,20 @@ Server starts on `http://localhost:8080`
 **Endpoint**: `POST /upload`
 
 **Headers**:
+
 ```
 Authorization: Bearer <jwt-token>
 Content-Type: multipart/form-data
 ```
 
 **Body**:
+
 ```
 file: <image-file>
 ```
 
 **Response** (immediate):
+
 ```json
 {
   "hash": "sha256_of_uploaded_file",
@@ -131,6 +161,7 @@ file: <image-file>
 **Endpoint**: `GET /failures?hash=<sha256>`
 
 **Response** (success):
+
 ```json
 {
   "hash": "sha256...",
@@ -140,6 +171,7 @@ file: <image-file>
 ```
 
 **Response** (failure):
+
 ```json
 {
   "hash": "sha256...",
@@ -181,7 +213,9 @@ const token = jwt.sign(payload, 'your-secret-key');
 ### 4. Storage Backend Setup
 
 #### S3 Configuration
+
 Store credentials in Pebble DB:
+
 ```bash
 # Add S3 credentials
 curl -X POST http://localhost:8080/admin/credentials \
@@ -189,6 +223,7 @@ curl -X POST http://localhost:8080/admin/credentials \
 ```
 
 #### Direct Serving
+
 Files served at: `http://your-server/files/tenant-123/filename.jpg`
 
 ---
@@ -196,11 +231,13 @@ Files served at: `http://your-server/files/tenant-123/filename.jpg`
 ## 🧪 Testing
 
 Run the test suite:
+
 ```bash
 go test ./tests/...
 ```
 
 Test coverage includes:
+
 - JWT token parsing and validation
 - Job processing logic
 - Failure store operations
@@ -232,18 +269,21 @@ Test coverage includes:
 ## 📋 What Remains To Do
 
 ### 🔄 High Priority
+
 - **Callback Implementation**: HTTP callbacks for job completion
 - **Credential Management API**: REST endpoints for managing storage credentials
 - **Rate Limiting**: Prevent abuse and manage resource usage
 - **Metrics & Monitoring**: Processing stats, queue depth, failure rates
 
 ### 🔄 Medium Priority  
+
 - **Batch Uploads**: Support multiple files in single request
 - **Progress Tracking**: Real-time processing status updates
 - **Image Optimization**: Auto-orientation, EXIF stripping, format selection
 - **CDN Integration**: CloudFront, Cloudflare integration
 
 ### 🔄 Low Priority
+
 - **Video Support**: Extend to video transcoding
 - **Webhook Retries**: Failed callback retry logic
 - **Admin Dashboard**: Web UI for monitoring and management
@@ -254,30 +294,35 @@ Test coverage includes:
 ## 🚀 Enhancement Suggestions
 
 ### Performance
+
 - **Worker Pool**: Multiple concurrent workers for high throughput
 - **GPU Acceleration**: Hardware-accelerated encoding where available
 - **Caching Layer**: Redis for frequently accessed images
 - **CDN Integration**: Automatic CDN invalidation and distribution
 
 ### Reliability
+
 - **Dead Letter Queue**: Handle persistently failing jobs
 - **Circuit Breakers**: Fail fast for unhealthy storage backends
 - **Health Checks**: Storage backend availability monitoring
 - **Graceful Shutdown**: Complete in-flight jobs before shutdown
 
 ### Security
+
 - **Request Signing**: Additional request authentication beyond JWT
 - **Rate Limiting**: Per-user and per-IP limits
 - **Content Validation**: Image malware scanning and type validation
 - **Audit Logging**: Complete request/response logging for compliance
 
 ### Developer Experience
+
 - **OpenAPI Spec**: Complete API documentation
 - **SDKs**: Client libraries for popular languages
 - **Docker Images**: Pre-built containers with all dependencies
 - **Configuration UI**: Web interface for server configuration
 
 ### Enterprise Features
+
 - **Multi-Tenancy**: Complete tenant isolation
 - **SLA Management**: Guaranteed processing times
 - **Custom Workflows**: Pluggable processing pipelines

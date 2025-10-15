@@ -9,12 +9,10 @@ import (
 
 var db *pebble.DB
 
-const credentialsDataFile = "CredentialsData.db"
-
-// OpenDB opens the Pebble DB for credentials
-func OpenDB() error {
+// OpenDB opens the Pebble DB for credentials at the specified path
+func OpenDB(dbPath string) error {
 	var err error
-	db, err = pebble.Open(credentialsDataFile, &pebble.Options{})
+	db, err = pebble.Open(dbPath, &pebble.Options{})
 	if err != nil {
 		logger.Errorf("Failed to open Pebble DB: %v", err)
 		return err

@@ -3,6 +3,7 @@ package routes
 import (
 	"encoding/json"
 	"net/http"
+	"pixerve/config"
 	"pixerve/credentials"
 	"pixerve/utils"
 )
@@ -15,7 +16,7 @@ type S3Credentials struct {
 }
 
 func OpenCredentialsDB() error {
-	return credentials.OpenDB()
+	return credentials.OpenDB(config.GetCredentialsDBPath())
 }
 
 func DeregisterCredentialsHandler(w http.ResponseWriter, r *http.Request) {

@@ -1,19 +1,24 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
+	"pixerve/config"
+	"pixerve/credentials"
 	"pixerve/failures"
 	"pixerve/job"
 	"pixerve/logger"
 	"pixerve/routes"
-
-	pebble "github.com/cockroachdb/pebble"
 )
 
 func main() {
+	// Initialize credentials store
+	if err := credentials.OpenDB(config.GetCredentialsDBPath()); err != nil {
+		logger.Fatalf("Failed to initialize credentials store: %v", err)
+	}
+	defer credentials.CloseDB()
+
 	// Initialize failure store
-	if err := failures.Init("failures.db"); err != nil {
+	if err := failures.Init(config.GetFailuresDBPath()); err != nil {
 		logger.Fatalf("Failed to initialize failure store: %v", err)
 	}
 	defer failures.Close()
@@ -28,25 +33,4 @@ func main() {
 	http.HandleFunc("/failures", routes.FailureQueryHandler)
 	http.HandleFunc("/failures/list", routes.FailureListHandler)
 	http.ListenAndServe(":8080", nil)
-
-	db, err := pebble.Open("demo", &pebble.Options{})
-	if err != nil {
-		logger.Fatal(err)
-	}
-	key := []byte("hello")
-	if err := db.Set(key, []byte("world"), pebble.Sync); err != nil {
-		logger.Fatal(err)
-	}
-	value, closer, err := db.Get(key)
-	if err != nil {
-		logger.Fatal(err)
-	}
-	fmt.Printf("%s %s\n", key, value)
-	if err := closer.Close(); err != nil {
-		logger.Fatal(err)
-	}
-	if err := db.Close(); err != nil {
-		logger.Fatal(err)
-	}
-
 }
