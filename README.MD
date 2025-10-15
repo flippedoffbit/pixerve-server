@@ -13,7 +13,9 @@ Every growing product ends up building the same thing over and over again:
 a simple, reliable place to upload images, convert them, resize them, and serve them.
 
 Pixerve is our attempt to stop rewriting that wheel — and do it properly this time:
-a small, efficient image worker you can host, shape, and extend however you like.---
+a small, efficient image worker you can host, shape, and extend however you like.
+
+---
 
 ## 🌟 Current Features
 
@@ -29,6 +31,8 @@ a small, efficient image worker you can host, shape, and extend however you like
 ### ✅ API Endpoints
 
 - `POST /upload` - Upload images with JWT authentication
+- `GET /health` - Health check endpoint for load balancers and monitoring
+- `GET /version` - Version information and build details
 - `GET /failures?hash=<sha256>` - Check processing status for failed files
 - `GET /failures/list` - Admin endpoint for listing all failures
 - `GET /success?hash=<sha256>` - Check processing status for successful files
@@ -122,6 +126,15 @@ go run main.go
 ```
 
 Server starts on `http://localhost:8080`
+
+### Health Check
+
+Test that the server is running:
+
+```bash
+curl http://localhost:8080/health
+# {"status":"healthy","timestamp":"2025-10-15T...","version":"1.0.0"}
+```
 
 ---
 

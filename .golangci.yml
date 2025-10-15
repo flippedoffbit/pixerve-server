@@ -1,0 +1,16 @@
+version: 1.55.2
+
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - gofmt
+    - goimports
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - misspell
+    - errcheck
+    - gosimple

@@ -37,10 +37,9 @@ func main() {
 	// Start cleanup routine for old logs (runs every 24 hours)
 	go cleanupRoutine()
 
-	// Start cleanup routine for old logs (runs every 24 hours)
-	go cleanupRoutine()
-
 	http.HandleFunc("/upload", routes.UploadHandler)
+	http.HandleFunc("/health", routes.HealthHandler)
+	http.HandleFunc("/version", routes.VersionHandler)
 	http.HandleFunc("/failures", routes.FailureQueryHandler)
 	http.HandleFunc("/failures/list", routes.FailureListHandler)
 	http.HandleFunc("/success", routes.SuccessQueryHandler)

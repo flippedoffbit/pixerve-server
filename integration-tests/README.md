@@ -115,7 +115,7 @@ The tests use these default settings:
 
 ## Test Structure
 
-```
+``` text
 src/
 ├── test.ts          # Main integration test file
 └── types.ts         # TypeScript type definitions (future)

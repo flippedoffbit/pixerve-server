@@ -1,0 +1,33 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+pixerve
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test files
+test_*.db
+coverage.out
+
+# Documentation
+README.MD
+*.md
+
+# Development files
+Makefile
+.golangci.yml
+
+# Integration tests (not needed in production image)
+integration-tests/
