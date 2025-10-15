@@ -1,19 +1,19 @@
 # 🌌 Pixerve
 
-**Pixerve** is a work-in-progress, open-source image ingestion and processing server built for modern web services.  
+**Pixerve** is a work-in-progress, open-source image ingestion and processing server built for modern web services.
 It aims to make image handling **predictable, transparent, and fast** — without locking anyone into closed APIs or external services.
+
+**Scope**: Pixerve focuses exclusively on **upload → convert → storage**. It is designed as a single-user service. For multi-user scenarios, integrate with a dedicated JWT generator and user management application.
 
 ---
 
 ## 🧭 Motivation
 
-Every growing product ends up building the same thing over and over again:  
-a simple, reliable place to upload images, convert them, resize them, and serve them.  
+Every growing product ends up building the same thing over and over again:
+a simple, reliable place to upload images, convert them, resize them, and serve them.
 
-Pixerve is our attempt to stop rewriting that wheel — and do it properly this time:  
-a small, efficient image worker you can host, shape, and extend however you like.
-
----
+Pixerve is our attempt to stop rewriting that wheel — and do it properly this time:
+a small, efficient image worker you can host, shape, and extend however you like.---
 
 ## 🌟 Current Features
 
@@ -357,7 +357,6 @@ The TypeScript integration tests:
 - **Batch Uploads**: Support multiple files in single request
 - **Progress Tracking**: Real-time processing status updates
 - **Image Optimization**: Auto-orientation, EXIF stripping, format selection
-- **CDN Integration**: CloudFront, Cloudflare integration
 
 ### 🔄 Low Priority
 
@@ -373,9 +372,7 @@ The TypeScript integration tests:
 ### Performance
 
 - **Worker Pool**: Multiple concurrent workers for high throughput
-- **GPU Acceleration**: Hardware-accelerated encoding where available
 - **Caching Layer**: Redis for frequently accessed images
-- **CDN Integration**: Automatic CDN invalidation and distribution
 
 ### Reliability
 
@@ -400,7 +397,6 @@ The TypeScript integration tests:
 
 ### Enterprise Features
 
-- **Multi-Tenancy**: Complete tenant isolation
 - **SLA Management**: Guaranteed processing times
 - **Custom Workflows**: Pluggable processing pipelines
 - **Analytics**: Usage patterns and performance insights
