@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"time"
 
+	"pixerve/models"
+
 	"github.com/go-jose/go-jose/v4"
 	"github.com/go-jose/go-jose/v4/jwt"
-	"pixerve/models"
 )
 
 var (
@@ -87,6 +88,33 @@ func VerifyPixerveJWT(tokenString string, config VerifyConfig) (*models.PixerveJ
 	}
 
 	return claims, nil
+}
+
+// CreatePixerveJWT creates a signed JWT from PixerveJWT claims
+func CreatePixerveJWT(claims *models.PixerveJWT) (string, error) {
+	if claims == nil {
+		return "", errors.New("claims cannot be nil")
+	}
+
+	// Use HMAC signing with a default secret key for testing
+	// In production, this should be configurable
+	secretKey := []byte("test-secret-key-for-jwt-signing-at-least-32-bytes-long")
+
+	// Create the signer
+	signer, err := jose.NewSigner(jose.SigningKey{Algorithm: jose.HS256, Key: secretKey}, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create signer: %w", err)
+	}
+
+	// Create the JWT
+	builder := jwt.Signed(signer)
+	builder = builder.Claims(claims)
+	token, err := builder.Serialize()
+	if err != nil {
+		return "", fmt.Errorf("failed to create JWT: %w", err)
+	}
+
+	return token, nil
 }
 
 // Example usage:

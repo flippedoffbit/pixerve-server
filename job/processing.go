@@ -1,16 +1,21 @@
 package job
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"pixerve/encoder"
 	"pixerve/failures"
 	"pixerve/logger"
 	"pixerve/models"
+	"pixerve/success"
 	writerbackends "pixerve/writerBackends"
 )
 
@@ -46,6 +51,12 @@ func ProcessJob(jobDir string) error {
 	if err := processWriters(instr, convertedFiles); err != nil {
 		logger.Errorf("Failed to write to storage backends for %s: %v", jobDir, err)
 		return storeFailure(instr, err)
+	}
+
+	// Store success record
+	if err := success.StoreSuccess(instr.Hash, instr.Job, len(convertedFiles)); err != nil {
+		logger.Errorf("Failed to store success record for %s: %v", jobDir, err)
+		// Don't fail the job for success storage errors
 	}
 
 	// Send callback if configured
@@ -207,7 +218,48 @@ func sendCallback(instr JobInstructions) error {
 		return nil // No callback configured
 	}
 
-	// TODO: Implement HTTP callback
-	logger.Infof("Callback to %s not yet implemented", instr.Job.CallbackURL)
+	// Prepare callback payload
+	payload := map[string]interface{}{
+		"hash":       instr.Hash,
+		"status":     "completed",
+		"file_count": len(instr.Job.ConversionJobs) + 1, // +1 for original if kept
+		"timestamp":  time.Now().Unix(),
+		"job_data":   instr.Job,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal callback payload: %w", err)
+	}
+
+	// Create HTTP request
+	req, err := http.NewRequest("POST", instr.Job.CallbackURL, bytes.NewBuffer(payloadBytes))
+	if err != nil {
+		return fmt.Errorf("failed to create callback request: %w", err)
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "Pixerve/1.0")
+
+	// Add custom callback headers if provided
+	for key, value := range instr.Job.CallbackHeaders {
+		req.Header.Set(key, value)
+	}
+
+	// Send request with timeout
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("callback request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Check response status
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("callback returned non-2xx status: %d", resp.StatusCode)
+	}
+
+	logger.Infof("Successfully sent callback to %s", instr.Job.CallbackURL)
 	return nil
 }

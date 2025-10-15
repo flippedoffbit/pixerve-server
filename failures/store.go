@@ -48,10 +48,15 @@ func StoreFailure(hash string, err error, jobData interface{}) error {
 		jobJSON = []byte(fmt.Sprintf("failed to marshal job data: %v", jsonErr))
 	}
 
+	errorMsg := "unknown error"
+	if err != nil {
+		errorMsg = err.Error()
+	}
+
 	record := FailureRecord{
 		Hash:      hash,
 		Timestamp: time.Now(),
-		Error:     err.Error(),
+		Error:     errorMsg,
 		JobData:   string(jobJSON),
 	}
 
@@ -126,4 +131,44 @@ func ListFailures() ([]FailureRecord, error) {
 	}
 
 	return failures, nil
+}
+
+// CleanupOldRecords removes failure records older than the specified duration
+func CleanupOldRecords(maxAge time.Duration) error {
+	if db == nil {
+		return fmt.Errorf("failure store not initialized")
+	}
+
+	cutoff := time.Now().Add(-maxAge)
+	iter, err := db.NewIter(&pebble.IterOptions{})
+	if err != nil {
+		return err
+	}
+	defer iter.Close()
+
+	var keysToDelete [][]byte
+	for iter.First(); iter.Valid(); iter.Next() {
+		var record FailureRecord
+		if err := json.Unmarshal(iter.Value(), &record); err != nil {
+			continue
+		}
+		if record.Timestamp.Before(cutoff) {
+			key := make([]byte, len(iter.Key()))
+			copy(key, iter.Key())
+			keysToDelete = append(keysToDelete, key)
+		}
+	}
+
+	if err := iter.Error(); err != nil {
+		return fmt.Errorf("iteration error: %w", err)
+	}
+
+	// Delete old records
+	for _, key := range keysToDelete {
+		if err := db.Delete(key, pebble.Sync); err != nil {
+			return fmt.Errorf("failed to delete old failure record: %w", err)
+		}
+	}
+
+	return nil
 }

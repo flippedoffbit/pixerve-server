@@ -17,12 +17,22 @@ func getDataDir() string {
 	return "./data"
 }
 
+// GetDataDir returns the current data directory, checking environment variable at runtime
+func GetDataDir() string {
+	return getDataDir()
+}
+
 // GetCredentialsDBPath returns the full path to the credentials database
 func GetCredentialsDBPath() string {
-	return filepath.Join(DATA_DIR, "credentials.db")
+	return filepath.Join(GetDataDir(), "credentials.db")
 }
 
 // GetFailuresDBPath returns the full path to the failures database
 func GetFailuresDBPath() string {
-	return filepath.Join(DATA_DIR, "failures.db")
+	return filepath.Join(GetDataDir(), "failures.db")
+}
+
+// GetSuccessDBPath returns the full path to the success database
+func GetSuccessDBPath() string {
+	return filepath.Join(GetDataDir(), "success.db")
 }

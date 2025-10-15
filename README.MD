@@ -22,15 +22,17 @@ a small, efficient image worker you can host, shape, and extend however you like
 - **JWT-Based Authentication**: Secure upload authorization with structured job specifications
 - **Multi-Format Conversion**: Support for JPG, PNG, WebP, AVIF, and lossless copying
 - **Multiple Storage Backends**: S3, Google Cloud Storage, SFTP, and direct HTTP serving
-- **File-Based Queuing**: Crash-resistant job processing with in-memory pending management
-- **Failure Tracking**: Persistent failure storage with query API for status checking
-- **Structured Logging**: Custom logger with console and file output support
+- **Success Tracking**: Persistent success storage with query API and file counts
+- **HTTP Callbacks**: Completion webhooks with custom headers and payload
+- **Automatic Cleanup**: Time-based cleanup of old success/failure records (30+ days)
 
 ### ✅ API Endpoints
 
 - `POST /upload` - Upload images with JWT authentication
-- `GET /failures?hash=<sha256>` - Check processing status for uploaded files
+- `GET /failures?hash=<sha256>` - Check processing status for failed files
 - `GET /failures/list` - Admin endpoint for listing all failures
+- `GET /success?hash=<sha256>` - Check processing status for successful files
+- `GET /success/list` - Admin endpoint for listing all successes
 
 ### ✅ Job Specification (JWT Payload)
 
@@ -158,10 +160,10 @@ file: <image-file>
 
 ### 2. Check Processing Status
 
+#### Check for Failures
 **Endpoint**: `GET /failures?hash=<sha256>`
 
-**Response** (success):
-
+**Response** (success - no failure found):
 ```json
 {
   "hash": "sha256...",
@@ -171,7 +173,6 @@ file: <image-file>
 ```
 
 **Response** (failure):
-
 ```json
 {
   "hash": "sha256...",
@@ -182,7 +183,47 @@ file: <image-file>
 }
 ```
 
-### 3. JWT Token Creation
+#### Check for Success Details
+**Endpoint**: `GET /success?hash=<sha256>`
+
+**Response** (success found):
+```json
+{
+  "hash": "sha256...",
+  "status": "success",
+  "timestamp": "2025-10-15T18:20:56Z",
+  "file_count": 3,
+  "job_data": "{...}"
+}
+```
+
+**Response** (not found):
+```json
+{
+  "hash": "sha256...",
+  "status": "not_found",
+  "message": "No success record found for this hash"
+}
+```
+
+### 3. Completion Callbacks
+
+Pixerve supports HTTP callbacks when job processing completes successfully. Include `completionCallback` and optional `callbackHeaders` in your JWT job specification.
+
+**Callback Payload**:
+```json
+{
+  "hash": "sha256_of_processed_file",
+  "status": "completed",
+  "file_count": 3,
+  "timestamp": 1640995200,
+  "job_data": { ... }
+}
+```
+
+**Callback Headers**: Custom headers can be specified in `callbackHeaders` for authentication.
+
+### 4. JWT Token Creation
 
 Create JWT tokens with job specifications using your preferred JWT library:
 
@@ -253,16 +294,27 @@ Test coverage includes:
 │   HTTP Server   │────│  Job Processing  │────│  Storage        │
 │                 │    │  - JWT Parsing   │    │  Backends       │
 │ • /upload       │    │  - Conversions   │    │  - S3           │
-│ • /failures     │    │  - File Naming   │    │  - GCS          │
-└─────────────────┘    └──────────────────┘    │  - SFTP         │
-                                               │  - Direct       │
-┌─────────────────┐    ┌──────────────────┐    └─────────────────┘
-│  Queue System   │────│  Failure Store   │
-│                 │    │  - Pebble DB     │
-│ • File-based    │    │  - Query API     │
-│ • In-memory     │    │  - Crash recovery│
-└─────────────────┘    └──────────────────┘
+│ • /failures     │    │  - Callbacks     │    │  - GCS          │
+│ • /success      │    │  - File Naming   │    │  - SFTP         │
+└─────────────────┘    └──────────────────┘    │  - Direct       │
+                                               └─────────────────┘
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│  Queue System   │────│  Success Store   │────│  Failure Store  │
+│                 │    │  - Pebble DB     │    │  - Pebble DB     │
+│ • File-based    │    │  - Query API     │    │  - Query API     │
+│ • In-memory     │    │  - Cleanup       │    │  - Cleanup       │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
 ```
+
+**Data Directory Structure**:
+```
+./data/
+├── credentials.db    # Storage credentials
+├── failures.db       # Processing failures
+└── success.db        # Processing successes
+```
+
+**Automatic Cleanup**: Old records (>30 days) are automatically cleaned up every 24 hours.
 
 ---
 
@@ -270,7 +322,6 @@ Test coverage includes:
 
 ### 🔄 High Priority
 
-- **Callback Implementation**: HTTP callbacks for job completion
 - **Credential Management API**: REST endpoints for managing storage credentials
 - **Rate Limiting**: Prevent abuse and manage resource usage
 - **Metrics & Monitoring**: Processing stats, queue depth, failure rates
