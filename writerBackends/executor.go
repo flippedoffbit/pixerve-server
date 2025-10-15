@@ -6,6 +6,11 @@ import (
 	"io"
 )
 
+type WriteInstruction struct {
+	BackendType string            // e.g., "directServe", "s3", "gcs", "sftp"
+	AccessInfo  map[string]string // e.g., credentials, bucket names, paths
+}
+
 func WriteImage(ctx context.Context, accessInfo map[string]string, reader io.Reader, backendType string) error {
 	// Implementation for writing an image
 	// we will switch based on the backend type, e.g., directServe, s3, gcs, sftp (files in same dir)

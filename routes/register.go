@@ -3,15 +3,9 @@ package routes
 import (
 	"encoding/json"
 	"net/http"
-	"pixerve/logger"
+	"pixerve/credentials"
 	"pixerve/utils"
-
-	"github.com/cockroachdb/pebble"
 )
-
-var db *pebble.DB
-
-const credentialsDataFile = "CredentialsData.db"
 
 type S3Credentials struct {
 	AccessKeyID     string `json:"access_key_id"`
@@ -21,16 +15,7 @@ type S3Credentials struct {
 }
 
 func OpenCredentialsDB() error {
-
-	var err error
-
-	db, err = pebble.Open(credentialsDataFile, &pebble.Options{})
-
-	if err != nil {
-		logger.Fatalf("Failed to open Pebble DB: %v", err)
-		return err
-	}
-	return nil
+	return credentials.OpenDB()
 }
 
 func DeregisterCredentialsHandler(w http.ResponseWriter, r *http.Request) {
@@ -47,7 +32,7 @@ func DeregisterCredentialsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := db.Delete([]byte(keyString), pebble.Sync)
+	err := credentials.DeleteCredentials(keyString)
 
 	if err != nil {
 		http.Error(w, "Failed to delete credentials", http.StatusInternalServerError)
@@ -79,14 +64,7 @@ func RegisterCredentialsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	encodedCreds, err := json.Marshal(credsBody)
-
-	if err != nil {
-		http.Error(w, "Failed to encode credentials", http.StatusInternalServerError)
-		return
-	}
-
-	err = db.Set([]byte(keyString), encodedCreds, pebble.Sync)
+	err = credentials.StoreCredentials(keyString, credsBody)
 
 	if err != nil {
 		http.Error(w, "Failed to store credentials", http.StatusInternalServerError)

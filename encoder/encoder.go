@@ -40,4 +40,5 @@ func RegisterDefaults() {
 	Register("png", "magick", EncodePNG)
 	Register("webp", "cwebp", EncodeWebP)
 	Register("avif", "avifenc", EncodeAVIF)
+	RegisterCopy()
 }
