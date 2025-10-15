@@ -493,7 +493,19 @@ A Java client with POJOs for job specifications, HTTP client integration, and Ma
 </dependency>
 ```
 
-📖 [Java Client Documentation](https://github.com/pixerve/java-client)
+📖 [Java Client Documentation](./libs/java/README.md)
+
+### Swift
+
+A Swift client with modern async/await APIs for iOS, macOS, tvOS, and watchOS applications.
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/pixerve/swift-client.git", from: "1.0.0")
+]
+```
+
+📖 [Swift Client Documentation](https://github.com/pixerve/swift-client)
 
 All client libraries provide:
 
