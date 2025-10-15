@@ -133,14 +133,14 @@ Server starts on `http://localhost:8080`
 
 **Headers**:
 
-```
+``` text
 Authorization: Bearer <jwt-token>
 Content-Type: multipart/form-data
 ```
 
 **Body**:
 
-```
+``` text
 file: <image-file>
 ```
 
@@ -161,9 +161,11 @@ file: <image-file>
 ### 2. Check Processing Status
 
 #### Check for Failures
+
 **Endpoint**: `GET /failures?hash=<sha256>`
 
 **Response** (success - no failure found):
+
 ```json
 {
   "hash": "sha256...",
@@ -173,6 +175,7 @@ file: <image-file>
 ```
 
 **Response** (failure):
+
 ```json
 {
   "hash": "sha256...",
@@ -184,9 +187,11 @@ file: <image-file>
 ```
 
 #### Check for Success Details
+
 **Endpoint**: `GET /success?hash=<sha256>`
 
 **Response** (success found):
+
 ```json
 {
   "hash": "sha256...",
@@ -198,6 +203,7 @@ file: <image-file>
 ```
 
 **Response** (not found):
+
 ```json
 {
   "hash": "sha256...",
@@ -211,6 +217,7 @@ file: <image-file>
 Pixerve supports HTTP callbacks when job processing completes successfully. Include `completionCallback` and optional `callbackHeaders` in your JWT job specification.
 
 **Callback Payload**:
+
 ```json
 {
   "hash": "sha256_of_processed_file",
@@ -315,7 +322,7 @@ The TypeScript integration tests:
 
 ## 🏗️ Architecture
 
-```
+``` text
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   HTTP Server   │────│  Job Processing  │────│  Storage        │
 │                 │    │  - JWT Parsing   │    │  Backends       │
@@ -323,17 +330,18 @@ The TypeScript integration tests:
 │ • /failures     │    │  - Callbacks     │    │  - GCS          │
 │ • /success      │    │  - File Naming   │    │  - SFTP         │
 └─────────────────┘    └──────────────────┘    │  - Direct       │
-                                               └─────────────────┘
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+                                               └────────|────────┘
+┌─────────────────┐    ┌──────────────────┐    ┌────────|────────┐
 │  Queue System   │────│  Success Store   │────│  Failure Store  │
-│                 │    │  - Pebble DB     │    │  - Pebble DB     │
-│ • File-based    │    │  - Query API     │    │  - Query API     │
-│ • In-memory     │    │  - Cleanup       │    │  - Cleanup       │
+│                 │    │  - Pebble DB     │    │  - Pebble DB    │
+│ • File-based    │    │  - Query API     │    │  - Query API    │
+│ • In-memory     │    │  - Cleanup       │    │  - Cleanup      │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
 ```
 
 **Data Directory Structure**:
-```
+
+``` text
 ./data/
 ├── credentials.db    # Storage credentials
 ├── failures.db       # Processing failures

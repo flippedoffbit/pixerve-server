@@ -24,6 +24,8 @@ Thumbs.db
 *.log
 # Ignore coverage files
 coverage.out
+# Ignore test database files
+test_*.db
 # Ignore build directories
 build/
 bin/
