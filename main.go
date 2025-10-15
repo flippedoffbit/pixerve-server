@@ -40,6 +40,8 @@ func main() {
 	http.HandleFunc("/upload", routes.UploadHandler)
 	http.HandleFunc("/health", routes.HealthHandler)
 	http.HandleFunc("/version", routes.VersionHandler)
+	http.HandleFunc("/status", routes.JobStatusHandler)
+	http.HandleFunc("/cancel", routes.CancelJobHandler)
 	http.HandleFunc("/failures", routes.FailureQueryHandler)
 	http.HandleFunc("/failures/list", routes.FailureListHandler)
 	http.HandleFunc("/success", routes.SuccessQueryHandler)

@@ -26,6 +26,7 @@ a small, efficient image worker you can host, shape, and extend however you like
 - **Multiple Storage Backends**: S3, Google Cloud Storage, SFTP, and direct HTTP serving
 - **Success Tracking**: Persistent success storage with query API and file counts
 - **HTTP Callbacks**: Completion webhooks with custom headers and payload
+- **Job Cancellation**: Cancel pending jobs by hash with automatic cleanup
 - **Automatic Cleanup**: Time-based cleanup of old success/failure records (30+ days)
 
 ### ✅ API Endpoints
@@ -33,10 +34,24 @@ a small, efficient image worker you can host, shape, and extend however you like
 - `POST /upload` - Upload images with JWT authentication
 - `GET /health` - Health check endpoint for load balancers and monitoring
 - `GET /version` - Version information and build details
+- `GET /status?hash=<sha256>` - Check job processing status
+- `DELETE /cancel?hash=<sha256>` - Cancel a pending job by hash
 - `GET /failures?hash=<sha256>` - Check processing status for failed files
 - `GET /failures/list` - Admin endpoint for listing all failures
 - `GET /success?hash=<sha256>` - Check processing status for successful files
 - `GET /success/list` - Admin endpoint for listing all successes
+
+### ✅ Job States
+
+Jobs progress through the following states:
+
+- **pending** - Job uploaded and queued for processing
+- **processing** - Job is currently being converted and uploaded
+- **completed** - Job finished successfully
+- **failed** - Job encountered an error during processing
+- **cancelled** - Job was cancelled before completion
+
+Only **pending** jobs can be cancelled. Once a job starts processing, it cannot be cancelled.
 
 ### ✅ Job Specification (JWT Payload)
 
@@ -431,6 +446,64 @@ Its purpose is **clarity and control** — the kind of tool you can actually und
 If it ends up helping others the same way it helps us, then it's already a success.
 
 ---
+
+## 📚 Client Libraries
+
+Pixerve provides official client libraries to make integration easier across different programming languages. Each client library is maintained in its own repository for independent versioning and development.
+
+### TypeScript/JavaScript
+
+A comprehensive Node.js client with full TypeScript support, JWT handling, and async operations.
+
+```bash
+npm install @pixerve/client
+```
+
+📖 [TypeScript Client Documentation](https://github.com/pixerve/typescript-client)
+
+### Python
+
+A Python client with classes for job specifications, storage backends, and comprehensive error handling.
+
+```bash
+pip install pixerve-client
+```
+
+📖 [Python Client Documentation](https://github.com/pixerve/python-client)
+
+### Go
+
+A Go client with structs for job specifications, proper error handling, and context support.
+
+```bash
+go get github.com/pixerve/go-client
+```
+
+📖 [Go Client Documentation](https://github.com/pixerve/go-client)
+
+### Java
+
+A Java client with POJOs for job specifications, HTTP client integration, and Maven/Gradle support.
+
+```xml
+<dependency>
+    <groupId>com.pixerve</groupId>
+    <artifactId>pixerve-client</artifactId>
+    <version>1.0.0</version>
+</dependency>
+```
+
+📖 [Java Client Documentation](https://github.com/pixerve/java-client)
+
+All client libraries provide:
+
+- JWT token generation and signing
+- Image upload with multipart form data
+- Job status monitoring and polling
+- Job cancellation support
+- Health check and version endpoints
+- Type-safe job specification builders
+- Comprehensive error handling
 
 ## 🪶 License
 

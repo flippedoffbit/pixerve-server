@@ -20,9 +20,25 @@ import (
 )
 
 // ProcessJob processes a single job from the pending queue
-func ProcessJob(jobDir string) error {
+func ProcessJob(ctx context.Context, jobDir string) error {
 	// Ensure encoders are registered
 	encoder.RegisterDefaults()
+
+	// Start cleanup goroutine for cancellation
+	cleanupDone := make(chan struct{})
+	go func() {
+		defer close(cleanupDone)
+		<-ctx.Done()
+		logger.Infof("Job cancelled, cleaning up %s", jobDir)
+		if err := os.RemoveAll(jobDir); err != nil {
+			logger.Errorf("Failed to cleanup cancelled job directory %s: %v", jobDir, err)
+		}
+	}()
+
+	// Ensure cleanup goroutine finishes
+	defer func() {
+		<-cleanupDone
+	}()
 
 	// Read instructions
 	instr, err := ReadInstructions(jobDir)
@@ -41,14 +57,14 @@ func ProcessJob(jobDir string) error {
 	}
 
 	// Process conversions
-	convertedFiles, err := processConversions(instr, outputDir)
+	convertedFiles, err := processConversions(ctx, instr, outputDir)
 	if err != nil {
 		logger.Errorf("Failed to process conversions for %s: %v", jobDir, err)
 		return storeFailure(instr, err)
 	}
 
 	// Write to storage backends
-	if err := processWriters(instr, convertedFiles); err != nil {
+	if err := processWriters(ctx, instr, convertedFiles); err != nil {
 		logger.Errorf("Failed to write to storage backends for %s: %v", jobDir, err)
 		return storeFailure(instr, err)
 	}
@@ -76,13 +92,20 @@ func ProcessJob(jobDir string) error {
 }
 
 // processConversions runs all conversion jobs and returns list of output files
-func processConversions(instr JobInstructions, outputDir string) ([]string, error) {
+func processConversions(ctx context.Context, instr JobInstructions, outputDir string) ([]string, error) {
 	var convertedFiles []string
 
 	inputPath := filepath.Join(instr.FilePath, instr.OriginalFile)
 
 	for _, convJob := range instr.Job.ConversionJobs {
-		outputFile, err := runConversion(inputPath, convJob, outputDir, instr.Hash, instr.OriginalFile)
+		// Check for cancellation
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("job cancelled: %w", ctx.Err())
+		default:
+		}
+
+		outputFile, err := runConversion(ctx, inputPath, convJob, outputDir, instr.Hash, instr.OriginalFile)
 		if err != nil {
 			return nil, fmt.Errorf("conversion failed for %s: %w", convJob.Encoder, err)
 		}
@@ -93,7 +116,7 @@ func processConversions(instr JobInstructions, outputDir string) ([]string, erro
 }
 
 // runConversion executes a single conversion job
-func runConversion(inputPath string, convJob models.ConversionJob, outputDir, hash, originalFile string) (string, error) {
+func runConversion(ctx context.Context, inputPath string, convJob models.ConversionJob, outputDir, hash, originalFile string) (string, error) {
 	// Generate output filename
 	outputFile := generateOutputFilename(hash, originalFile, convJob)
 
@@ -113,7 +136,7 @@ func runConversion(inputPath string, convJob models.ConversionJob, outputDir, ha
 		Speed:   convJob.Speed,
 	}
 
-	if err := enc(context.Background(), inputPath, outputPath, opts); err != nil {
+	if err := enc(ctx, inputPath, outputPath, opts); err != nil {
 		return "", fmt.Errorf("encoding failed: %w", err)
 	}
 
@@ -157,9 +180,23 @@ func getExtensionForEncoder(encoderName string) string {
 }
 
 // processWriters writes converted files to all configured storage backends
-func processWriters(instr JobInstructions, convertedFiles []string) error {
+func processWriters(ctx context.Context, instr JobInstructions, convertedFiles []string) error {
 	for _, writerJob := range instr.Job.WriterJobs {
+		// Check for cancellation
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("job cancelled during writing: %w", ctx.Err())
+		default:
+		}
+
 		for _, file := range convertedFiles {
+			// Check for cancellation
+			select {
+			case <-ctx.Done():
+				return fmt.Errorf("job cancelled during writing: %w", ctx.Err())
+			default:
+			}
+
 			filePath := filepath.Join(instr.FilePath, "output", file)
 
 			// Open the file for reading
@@ -173,7 +210,7 @@ func processWriters(instr JobInstructions, convertedFiles []string) error {
 			accessInfo := prepareAccessInfo(writerJob, file, instr.Job.SubDir)
 
 			// Write to backend
-			if err := writerbackends.WriteImage(context.Background(), accessInfo, reader, writerJob.Type); err != nil {
+			if err := writerbackends.WriteImage(ctx, accessInfo, reader, writerJob.Type); err != nil {
 				return fmt.Errorf("failed to write %s to %s: %w", file, writerJob.Type, err)
 			}
 		}
