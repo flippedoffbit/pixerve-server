@@ -271,7 +271,9 @@ Files served at: `http://your-server/files/tenant-123/filename.jpg`
 
 ## 🧪 Testing
 
-Run the test suite:
+### Unit Tests
+
+Run the Go unit test suite:
 
 ```bash
 go test ./tests/...
@@ -282,8 +284,32 @@ Test coverage includes:
 - JWT token parsing and validation
 - Job processing logic
 - Failure store operations
+- Success store operations
 - Encoder registration
 - Pending job management
+- Configuration handling
+- HTTP API endpoints
+
+### Integration Tests
+
+Run comprehensive integration tests that test the full API workflow:
+
+```bash
+cd integration-tests
+npm install
+npm test
+```
+
+The TypeScript integration tests:
+
+- Automatically build and start Pixerve
+- Test real HTTP API endpoints
+- Demonstrate usage patterns for TS/JS applications
+- Validate JWT creation and file uploads
+- Test success/failure status checking
+- Verify callback functionality
+
+**Note**: Integration tests require Go and Node.js to be installed.
 
 ---
 
