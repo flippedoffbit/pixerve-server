@@ -23,7 +23,7 @@ const (
 )
 
 var (
-	pendingJobs []string                    // slice of directory paths with pending jobs
+	pendingJobs []string                              // slice of directory paths with pending jobs
 	activeJobs  = make(map[string]context.CancelFunc) // hash -> cancel function
 	jobStates   = make(map[string]JobState)           // hash -> job state
 	mu          sync.RWMutex
@@ -64,12 +64,12 @@ func GetPendingJobs() []string {
 func CancelJob(hash string) error {
 	mu.Lock()
 	defer mu.Unlock()
-	
+
 	state, exists := jobStates[hash]
 	if !exists {
 		return fmt.Errorf("job with hash %s not found", hash)
 	}
-	
+
 	switch state {
 	case JobStateCompleted:
 		return fmt.Errorf("job with hash %s is already completed", hash)
@@ -136,29 +136,29 @@ func ScanForPendingJobs() error {
 func processJob(jobDir string) error {
 	// Extract hash from job directory path
 	hash := filepath.Base(jobDir)
-	
+
 	// Mark job as processing
 	mu.Lock()
 	jobStates[hash] = JobStateProcessing
 	mu.Unlock()
-	
+
 	// Create context with cancellation
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	// Register the cancel function
 	mu.Lock()
 	activeJobs[hash] = cancel
 	mu.Unlock()
-	
+
 	// Ensure cleanup
 	defer func() {
 		mu.Lock()
 		delete(activeJobs, hash)
 		mu.Unlock()
 	}()
-	
+
 	err := ProcessJob(ctx, jobDir)
-	
+
 	// Mark job as completed or failed
 	mu.Lock()
 	if err != nil {
@@ -171,7 +171,7 @@ func processJob(jobDir string) error {
 		jobStates[hash] = JobStateCompleted
 	}
 	mu.Unlock()
-	
+
 	return err
 }
 
