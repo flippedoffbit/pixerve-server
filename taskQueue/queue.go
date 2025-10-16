@@ -1,6 +1,8 @@
 package taskqueue
 
 import (
+	"fmt"
+
 	"github.com/cockroachdb/pebble"
 )
 
@@ -44,4 +46,21 @@ func (q *DBQueue) Delete(key string) error {
 // Close closes the underlying DB.
 func (q *DBQueue) Close() error {
 	return q.DB.Close()
+}
+
+// CheckHealth performs a basic health check on the queue system
+func CheckHealth() error {
+	if ConvertQueue == nil {
+		return fmt.Errorf("convert queue not initialized")
+	}
+
+	// Try a simple operation to verify database is accessible
+	_, closer, err := ConvertQueue.DB.Get([]byte("__health_check__"))
+	if err != nil && err != pebble.ErrNotFound {
+		return fmt.Errorf("queue database health check failed: %w", err)
+	}
+	if closer != nil {
+		closer.Close()
+	}
+	return nil
 }

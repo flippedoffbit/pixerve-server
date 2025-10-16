@@ -30,3 +30,5 @@ test_*.db
 build/
 bin/
 pkg/
+# Ignore data directory
+data/

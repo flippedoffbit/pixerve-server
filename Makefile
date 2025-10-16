@@ -2,7 +2,7 @@
 
 # Build the binary
 build:
-	go build -o pixerve -ldflags "-s -w" .
+	go build -o pixerve -ldflags "-s -w -X pixerve/routes.version=$(shell git describe --tags --always --dirty) -X pixerve/routes.buildTime=$(shell date -u +%Y-%m-%dT%H:%M:%SZ) -X pixerve/routes.gitCommit=$(shell git rev-parse HEAD)" .
 
 # Run tests
 test:

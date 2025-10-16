@@ -38,7 +38,7 @@ func GetSuccessDBPath() string {
 }
 
 // GetDirectServeBaseDir returns the base directory for direct file serving
-// Defaults to "./serve" relative to the executable
+// Defaults to "./serve" relative to the executable, configurable via PIXERVE_SERVE_DIR
 func GetDirectServeBaseDir() string {
 	if dir := os.Getenv("PIXERVE_SERVE_DIR"); dir != "" {
 		return dir

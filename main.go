@@ -12,9 +12,12 @@ import (
 	"pixerve/logger"
 	"pixerve/routes"
 	"pixerve/success"
+	"pixerve/taskqueue"
 	"syscall"
 	"time"
 )
+
+// Build-time variables (injected by ldflags)
 
 func main() {
 	logger.Info("Starting Pixerve server initialization")
@@ -42,6 +45,14 @@ func main() {
 	}
 	defer success.Close()
 	logger.Info("Success database initialized successfully")
+
+	// Initialize task queue
+	logger.Debug("Initializing task queue")
+	if err := taskqueue.OpenConvertQueueDB(); err != nil {
+		logger.Fatalf("Failed to initialize task queue: %v", err)
+	}
+	defer taskqueue.ConvertQueue.Close()
+	logger.Info("Task queue initialized successfully")
 
 	// Scan for pending jobs on startup
 	logger.Info("Scanning for pending jobs on startup")

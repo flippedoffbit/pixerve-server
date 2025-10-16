@@ -157,3 +157,20 @@ func CleanupOldRecords(maxAge time.Duration) error {
 
 	return nil
 }
+
+// CheckHealth performs a basic health check on the success database
+func CheckHealth() error {
+	if db == nil {
+		return fmt.Errorf("success database not initialized")
+	}
+
+	// Try a simple operation to verify database is accessible
+	_, closer, err := db.Get([]byte("__health_check__"))
+	if err != nil && err != pebble.ErrNotFound {
+		return fmt.Errorf("database health check failed: %w", err)
+	}
+	if closer != nil {
+		closer.Close()
+	}
+	return nil
+}

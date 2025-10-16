@@ -1,13 +1,25 @@
 package taskqueue
 
+import (
+	"os"
+	"path/filepath"
+)
+
 // Backwards-compatible wrapper around the generic DBQueue for the convert queue.
 
 var ConvertQueue *DBQueue
 
-const ConvertQueueDataFile = "ConvertQueue.db"
+// getConvertQueueDataFile returns the path to the convert queue database file
+func getConvertQueueDataFile() string {
+	dataDir := os.Getenv("PIXERVE_DATA_DIR")
+	if dataDir == "" {
+		dataDir = "data"
+	}
+	return filepath.Join(dataDir, "ConvertQueue.db")
+}
 
 func OpenConvertQueueDB() error {
-	q, err := OpenQueue(ConvertQueueDataFile)
+	q, err := OpenQueue(getConvertQueueDataFile())
 	if err != nil {
 		return err
 	}

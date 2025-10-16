@@ -3,7 +3,8 @@ package routes
 import (
 	"encoding/json"
 	"net/http"
-	"time"
+	"os"
+	"runtime"
 
 	"pixerve/logger"
 )
@@ -27,10 +28,10 @@ func VersionHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := VersionResponse{
-		Version:   "1.0.0", // TODO: Make this dynamic with build info
-		BuildTime: time.Now().Format(time.RFC3339),
-		GoVersion: "1.21", // TODO: Make this dynamic
-		GitCommit: "dev",  // TODO: Make this dynamic with git info
+		Version:   getVersionFromEnv(),
+		BuildTime: getBuildTimeFromEnv(),
+		GoVersion: runtime.Version(),
+		GitCommit: getGitCommitFromEnv(),
 	}
 
 	logger.Debugf("Version response: version=%s, go_version=%s, git_commit=%s",
@@ -44,4 +45,37 @@ func VersionHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Debug("Version request completed successfully")
+}
+
+// getVersionFromEnv returns the application version from package variables or environment
+func getVersionFromEnv() string {
+	if version != "dev" {
+		return version
+	}
+	if envVersion := os.Getenv("PIXERVE_VERSION"); envVersion != "" {
+		return envVersion
+	}
+	return "dev" // Default for development
+}
+
+// getBuildTimeFromEnv returns the build time from package variables or environment
+func getBuildTimeFromEnv() string {
+	if buildTime != "unknown" {
+		return buildTime
+	}
+	if envBuildTime := os.Getenv("PIXERVE_BUILD_TIME"); envBuildTime != "" {
+		return envBuildTime
+	}
+	return "unknown" // Default for development
+}
+
+// getGitCommitFromEnv returns the git commit hash from package variables or environment
+func getGitCommitFromEnv() string {
+	if gitCommit != "unknown" {
+		return gitCommit
+	}
+	if envGitCommit := os.Getenv("PIXERVE_GIT_COMMIT"); envGitCommit != "" {
+		return envGitCommit
+	}
+	return "unknown" // Default for development
 }
