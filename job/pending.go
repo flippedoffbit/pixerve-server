@@ -189,6 +189,8 @@ func ProcessPendingJobs() {
 			// Process the job
 			if err := processJob(jobDir); err != nil {
 				logger.Errorf("Failed to process job in %s: %v", jobDir, err)
+				// Remove failed jobs from pending queue to prevent infinite retries
+				RemovePendingJob(jobDir)
 			} else {
 				// Remove from pending on success
 				RemovePendingJob(jobDir)

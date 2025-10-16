@@ -2,6 +2,7 @@ package credentials
 
 import (
 	"encoding/json"
+	"fmt"
 	"pixerve/logger"
 
 	"github.com/cockroachdb/pebble"
@@ -30,6 +31,10 @@ func CloseDB() error {
 }
 
 func GetCredentials(key string) (map[string]string, error) {
+	if db == nil {
+		return nil, fmt.Errorf("credentials database not initialized")
+	}
+
 	value, closer, err := db.Get([]byte(key))
 	if err != nil {
 		return nil, err
@@ -45,6 +50,10 @@ func GetCredentials(key string) (map[string]string, error) {
 
 // StoreCredentials stores the credentials map under the given key
 func StoreCredentials(key string, creds map[string]string) error {
+	if db == nil {
+		return fmt.Errorf("credentials database not initialized")
+	}
+
 	encodedCreds, err := json.Marshal(creds)
 	if err != nil {
 		return err
@@ -54,5 +63,9 @@ func StoreCredentials(key string, creds map[string]string) error {
 
 // DeleteCredentials deletes the credentials for the given key
 func DeleteCredentials(key string) error {
+	if db == nil {
+		return fmt.Errorf("credentials database not initialized")
+	}
+
 	return db.Delete([]byte(key), pebble.Sync)
 }

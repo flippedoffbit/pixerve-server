@@ -27,7 +27,12 @@ func CancelJobHandler(w http.ResponseWriter, r *http.Request) {
 	logger.Infof("Attempting to cancel job: %s", hash)
 	if err := job.CancelJob(hash); err != nil {
 		logger.Errorf("Failed to cancel job %s: %v", hash, err)
-		http.Error(w, fmt.Sprintf("Failed to cancel job: %v", err), http.StatusNotFound)
+		// Return appropriate status based on error
+		if err.Error() == "job with hash "+hash+" not found" {
+			http.Error(w, fmt.Sprintf("Job not found: %v", err), http.StatusNotFound)
+		} else {
+			http.Error(w, fmt.Sprintf("Cannot cancel job: %v", err), http.StatusConflict)
+		}
 		return
 	}
 

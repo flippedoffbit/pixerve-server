@@ -75,6 +75,10 @@ func parseClaimsIntoJobs(task *models.PixerveJWT) (combinedJob, error) {
 	if task.Job.KeepOriginal {
 		encodeJobs = append(encodeJobs, models.ConversionJob{
 			Encoder: "copy",
+			Length:  0,   // Not applicable for copy
+			Width:   0,   // Not applicable for copy
+			Quality: 100, // Not applicable for copy
+			Speed:   0,   // Not applicable for copy
 		})
 	}
 

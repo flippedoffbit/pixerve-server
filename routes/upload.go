@@ -88,7 +88,11 @@ func respondSuccess(w http.ResponseWriter, hash string, expectedFiles []string) 
 	logger.Debugf("Sending success response: hash=%s, expectedFiles=%v", hash, expectedFiles)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, `{"hash":"%s","expected_files":%q}`, hash, expectedFiles)
+	_, err := fmt.Fprintf(w, `{"hash":"%s","expected_files":%q}`, hash, expectedFiles)
+	if err != nil {
+		logger.Errorf("Failed to write success response: %v", err)
+		return
+	}
 	logger.Debug("Success response sent")
 }
 
@@ -181,6 +185,14 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 	defer file.Close()
 
 	logger.Infof("File received: %s, size: %d bytes", header.Filename, header.Size)
+
+	// Check file size limit (100MB) to prevent memory exhaustion
+	const maxFileSize = 100 << 20 // 100 MB
+	if header.Size > maxFileSize {
+		logger.Warnf("File too large: %d bytes (max: %d)", header.Size, maxFileSize)
+		http.Error(w, "File too large", http.StatusRequestEntityTooLarge)
+		return
+	}
 
 	// Compute SHA256 hash
 	logger.Debug("Computing SHA256 hash of file")

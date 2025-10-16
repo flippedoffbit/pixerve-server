@@ -24,18 +24,23 @@ func ProcessJob(ctx context.Context, jobDir string) error {
 	// Ensure encoders are registered
 	encoder.RegisterDefaults()
 
-	// Start cleanup goroutine for cancellation
+	// Create a channel to signal cleanup completion
 	cleanupDone := make(chan struct{})
+
+	// Start cleanup goroutine for cancellation
 	go func() {
 		defer close(cleanupDone)
 		<-ctx.Done()
 		logger.Infof("Job cancelled, cleaning up %s", jobDir)
-		if err := os.RemoveAll(jobDir); err != nil {
-			logger.Errorf("Failed to cleanup cancelled job directory %s: %v", jobDir, err)
+		// Only cleanup if context was cancelled (not if job completed successfully)
+		if ctx.Err() == context.Canceled {
+			if err := os.RemoveAll(jobDir); err != nil {
+				logger.Errorf("Failed to cleanup cancelled job directory %s: %v", jobDir, err)
+			}
 		}
 	}()
 
-	// Ensure cleanup goroutine finishes
+	// Ensure cleanup goroutine completes
 	defer func() {
 		<-cleanupDone
 	}()
@@ -44,7 +49,9 @@ func ProcessJob(ctx context.Context, jobDir string) error {
 	instr, err := ReadInstructions(jobDir)
 	if err != nil {
 		logger.Errorf("Failed to read instructions for %s: %v", jobDir, err)
-		return storeFailure(instr, err)
+		// Create a minimal instr for failure storage
+		hash := filepath.Base(jobDir)
+		return storeFailure(JobInstructions{Hash: hash}, err)
 	}
 
 	logger.Infof("Processing job in %s: %s", jobDir, instr.OriginalFile)
@@ -204,15 +211,18 @@ func processWriters(ctx context.Context, instr JobInstructions, convertedFiles [
 			if err != nil {
 				return fmt.Errorf("failed to open file %s: %w", filePath, err)
 			}
-			defer reader.Close()
 
 			// Prepare access info
 			accessInfo := prepareAccessInfo(writerJob, file, instr.Job.SubDir)
 
-			// Write to backend
+			// Write to backend (closes reader when done)
 			if err := writerbackends.WriteImage(ctx, accessInfo, reader, writerJob.Type); err != nil {
+				reader.Close() // Close on error
 				return fmt.Errorf("failed to write %s to %s: %w", file, writerJob.Type, err)
 			}
+
+			// Close reader after successful write
+			reader.Close()
 		}
 	}
 
