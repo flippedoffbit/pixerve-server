@@ -5,6 +5,8 @@ It aims to make image handling **predictable, transparent, and fast** — withou
 
 **Scope**: Pixerve focuses exclusively on **upload → convert → storage**. It is designed as a single-user service. For multi-user scenarios, integrate with a dedicated JWT generator and user management application.
 
+📚 **[Extending Pixerve](EXTENDING.md)** - Learn how to add new image formats and storage backends
+
 ---
 
 ## 🧭 Motivation
