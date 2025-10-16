@@ -60,7 +60,36 @@ Only **pending** jobs can be cancelled. Once a job starts processing, it cannot 
 
 Here's how Pixerve processes image uploads from start to finish:
 
-```mermaid
+### ASCII Diagram (Universal)
+
+```text
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│   Client    │    │   Server    │    │    Queue    │    │  Processor  │
+│             │    │             │    │             │    │             │
+│ POST /upload│───▶│ 1. Validate │───▶│ 5. Enqueue  │───▶│ 6. Process  │
+│ (JWT + file) │    │    JWT      │    │    Job      │    │    Job      │
+│             │    │             │    │             │    │             │
+│ 2. Get hash │◀───│ 3. Save to  │    │             │    │ 7. Convert  │
+│ + filenames  │    │    temp     │    │             │    │    images   │
+│             │    │             │    │             │    │             │
+│             │    │ 4. Create   │    │             │    │ 8. Upload to│
+│             │    │ instructions│    │             │    │   storage   │
+└─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
+                                                          │             │
+                                                          │ 9. Store    │
+                                                          │   success   │
+                                                          │             │
+                                                          │ 10. Send    │
+                                                          │   callback  │
+                                                          │             │
+                                                          │ 11. Cleanup │
+                                                          └─────────────┘
+```
+
+### Interactive Mermaid Diagram
+
+**Note:** Requires Mermaid.js support in your markdown viewer. If not supported, use the ASCII diagram above.
+
 ```mermaid
 sequenceDiagram
     participant Client
@@ -662,4 +691,4 @@ Discussions, design notes, and ideas will all live here — transparently, as th
 
 Stay tuned, and if you like where this is going, star the repo or drop by with ideas.  
 
-> _"Managed Image Processing — one pixel at a time."_
+> *"Managed Image Processing — one pixel at a time."*
