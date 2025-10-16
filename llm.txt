@@ -85,7 +85,7 @@ Pixerve is a high-performance Go-based image processing server that provides RES
 
 **HTTP Server & Routes**
 - `/health` - Health check endpoint with system status, uptime, and version info
-- `/upload` - File upload endpoint with JWT authentication
+- `/upload` - File upload endpoint with JWT authentication and duplicate prevention
 - `/register` - User registration/authentication
 
 **Task Queue System**
@@ -230,12 +230,11 @@ go test ./...
 - Configurable base directory for deployment flexibility
 - Files served directly by HTTP server for performance
 
-### Async Processing
-- Queue-based processing prevents blocking uploads
-- LevelDB provides ACID guarantees for job tracking
-- Separate success/failure tracking for monitoring
-- **Worker parallelism**: Configurable concurrent jobs (default NumCPU-1, max 10)
-- **I/O concurrency**: Multiple file writes happen concurrently using goroutines
+### Upload Deduplication
+- **Duplicate prevention**: Uploads of files with same hash are rejected if already being processed
+- **Temp directory check**: Uses existence of temp directory as indicator of active processing
+- **HTTP 409 Conflict**: Returns conflict status for duplicate uploads
+- **Automatic cleanup**: Temp directories removed after processing, allowing future uploads
 
 ### Image Processing Pipeline
 - Multiple encoder backends for format flexibility

@@ -204,6 +204,14 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Debugf("File hash computed: %s", hashSum)
 
+	// Check if job with this hash is already being processed
+	tempDirPath := filepath.Join(os.TempDir(), hashSum)
+	if _, err := os.Stat(tempDirPath); err == nil {
+		logger.Warnf("Upload rejected: job with hash %s is already being processed", hashSum)
+		http.Error(w, fmt.Sprintf("File with hash %s is already being processed", hashSum), http.StatusConflict)
+		return
+	}
+
 	// Reset file pointer to beginning
 	file.Seek(0, 0)
 
