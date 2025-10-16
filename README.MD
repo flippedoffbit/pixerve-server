@@ -565,42 +565,6 @@ The TypeScript integration tests:
 
 ---
 
-## 🚀 Enhancement Suggestions
-
-### Performance
-
-- **Worker Pool**: Multiple concurrent workers for high throughput
-- **Caching Layer**: Redis for frequently accessed images
-
-### Reliability
-
-- **Dead Letter Queue**: Handle persistently failing jobs
-- **Circuit Breakers**: Fail fast for unhealthy storage backends
-- **Health Checks**: Storage backend availability monitoring
-- **Graceful Shutdown**: Complete in-flight jobs before shutdown
-
-### Security
-
-- **Request Signing**: Additional request authentication beyond JWT
-- **Rate Limiting**: Per-user and per-IP limits
-- **Content Validation**: Image malware scanning and type validation
-- **Audit Logging**: Complete request/response logging for compliance
-
-### Developer Experience
-
-- **OpenAPI Spec**: Complete API documentation
-- **SDKs**: Client libraries for popular languages
-- **Docker Images**: Pre-built containers with all dependencies
-- **Configuration UI**: Web interface for server configuration
-
-### Enterprise Features
-
-- **SLA Management**: Guaranteed processing times
-- **Custom Workflows**: Pluggable processing pipelines
-- **Analytics**: Usage patterns and performance insights
-
----
-
 ## 🧭 Philosophy
 
 Pixerve doesn't chase feature lists or buzzwords.  
@@ -609,79 +573,9 @@ If it ends up helping others the same way it helps us, then it's already a succe
 
 ---
 
-## 📚 Client Libraries
-
-Pixerve provides official client libraries to make integration easier across different programming languages. Each client library is maintained in its own repository for independent versioning and development.
-
-### TypeScript/JavaScript
-
-A comprehensive Node.js client with full TypeScript support, JWT handling, and async operations.
-
-```bash
-npm install @pixerve/client
-```
-
-📖 [TypeScript Client Documentation](https://github.com/pixerve/typescript-client)
-
-### Python
-
-A Python client with classes for job specifications, storage backends, and comprehensive error handling.
-
-```bash
-pip install pixerve-client
-```
-
-📖 [Python Client Documentation](https://github.com/pixerve/python-client)
-
-### Go
-
-A Go client with structs for job specifications, proper error handling, and context support.
-
-```bash
-go get github.com/pixerve/go-client
-```
-
-📖 [Go Client Documentation](https://github.com/pixerve/go-client)
-
-### Java
-
-A Java client with POJOs for job specifications, HTTP client integration, and Maven/Gradle support.
-
-```xml
-<dependency>
-    <groupId>com.pixerve</groupId>
-    <artifactId>pixerve-client</artifactId>
-    <version>1.0.0</version>
-</dependency>
-```
-
-📖 [Java Client Documentation](./libs/java/README.md)
-
-### Swift
-
-A Swift client with modern async/await APIs for iOS, macOS, tvOS, and watchOS applications.
-
-```swift
-dependencies: [
-    .package(url: "https://github.com/pixerve/swift-client.git", from: "1.0.0")
-]
-```
-
-📖 [Swift Client Documentation](https://github.com/pixerve/swift-client)
-
-All client libraries provide:
-
-- JWT token generation and signing
-- Image upload with multipart form data
-- Job status monitoring and polling
-- Job cancellation support
-- Health check and version endpoints
-- Type-safe job specification builders
-- Comprehensive error handling
-
 ## 🪶 License
 
-TBD — open source, permissive, and community-friendly once the first release lands.
+MIT License
 
 ---
 

@@ -1,0 +1,196 @@
+{
+  "info": {
+    "name": "Pixerve API",
+    "description": "Postman collection for Pixerve Image Processing Server API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/health",
+          "host": ["{{base_url}}"],
+          "path": ["health"]
+        }
+      }
+    },
+    {
+      "name": "Version",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/version",
+          "host": ["{{base_url}}"],
+          "path": ["version"]
+        }
+      }
+    },
+    {
+      "name": "Upload Image",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt_token}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": []
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/upload",
+          "host": ["{{base_url}}"],
+          "path": ["upload"]
+        }
+      }
+    },
+    {
+      "name": "Check Job Status",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/status?hash={{job_hash}}",
+          "host": ["{{base_url}}"],
+          "path": ["status"],
+          "query": [
+            {
+              "key": "hash",
+              "value": "{{job_hash}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Cancel Job",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/cancel?hash={{job_hash}}",
+          "host": ["{{base_url}}"],
+          "path": ["cancel"],
+          "query": [
+            {
+              "key": "hash",
+              "value": "{{job_hash}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Check Failures",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/failures?hash={{job_hash}}",
+          "host": ["{{base_url}}"],
+          "path": ["failures"],
+          "query": [
+            {
+              "key": "hash",
+              "value": "{{job_hash}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "List All Failures",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/failures/list",
+          "host": ["{{base_url}}"],
+          "path": ["failures", "list"]
+        }
+      }
+    },
+    {
+      "name": "Check Success",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/success?hash={{job_hash}}",
+          "host": ["{{base_url}}"],
+          "path": ["success"],
+          "query": [
+            {
+              "key": "hash",
+              "value": "{{job_hash}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "List All Successes",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/success/list",
+          "host": ["{{base_url}}"],
+          "path": ["success", "list"]
+        }
+      }
+    },
+    {
+      "name": "Serve Processed File",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/files/{{sub_dir}}/{{filename}}",
+          "host": ["{{base_url}}"],
+          "path": ["files", "{{sub_dir}}", "{{filename}}"]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "jwt_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "job_hash",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "sub_dir",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "filename",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
