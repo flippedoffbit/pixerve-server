@@ -16,9 +16,12 @@ import (
 // using a service account key provided as a byte slice.
 
 func UploadToGCSWithJSON(ctx context.Context, accessInfo map[string]string, reader io.Reader) error {
-	// Create a client with the provided service account credentials.
-	credentialsJSON := make([]byte, 0)
-	base64.RawStdEncoding.Decode(credentialsJSON, []byte(accessInfo["credentialsJSON"]))
+	// Decode base64 credentials
+	credentialsJSON, err := base64.RawStdEncoding.DecodeString(accessInfo["credentialsJSON"])
+	if err != nil {
+		return fmt.Errorf("failed to decode base64 credentials: %w", err)
+	}
+
 	bucketName := accessInfo["bucket"]
 	objectName := accessInfo["object"]
 	client, err := storage.NewClient(ctx, option.WithCredentialsJSON(credentialsJSON))
