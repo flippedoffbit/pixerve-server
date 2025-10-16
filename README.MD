@@ -28,6 +28,7 @@ a small, efficient image worker you can host, shape, and extend however you like
 - **HTTP Callbacks**: Completion webhooks with custom headers and payload
 - **Job Cancellation**: Cancel pending jobs by hash with automatic cleanup
 - **Automatic Cleanup**: Time-based cleanup of old success/failure records (30+ days)
+- **Graceful Shutdown**: SIGINT/SIGTERM handling with 30s timeout for clean resource cleanup
 
 ### ✅ API Endpoints
 
