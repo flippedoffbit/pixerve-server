@@ -40,6 +40,7 @@ a small, efficient image worker you can host, shape, and extend however you like
 - `GET /failures/list` - Admin endpoint for listing all failures
 - `GET /success?hash=<sha256>` - Check processing status for successful files
 - `GET /success/list` - Admin endpoint for listing all successes
+- `GET /files/*` - Serve processed images directly (when `directHost: true` in JWT)
 
 ### ✅ Job States
 
@@ -52,6 +53,105 @@ Jobs progress through the following states:
 - **cancelled** - Job was cancelled before completion
 
 Only **pending** jobs can be cancelled. Once a job starts processing, it cannot be cancelled.
+
+---
+
+## 🔄 Upload & Processing Pipeline
+
+Here's how Pixerve processes image uploads from start to finish:
+
+```mermaid
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Server
+    participant Queue
+    participant Processor
+    participant Storage
+    participant Callback
+
+    %% Upload Phase
+    Client->>Server: POST /upload (JWT + multipart file)
+    Server->>Server: Validate JWT & extract job specs
+    Server->>Server: Compute SHA256 hash
+    Server->>Server: Save file to temp directory
+    Server->>Server: Create instructions.json
+    Server->>Queue: Add job to pending queue
+    Server->>Client: Return hash + expected filenames
+
+    %% Processing Phase
+    Queue->>Processor: Job picked up from queue
+    Processor->>Processor: Read instructions.json
+    Processor->>Processor: Mark job as "processing"
+    Processor->>Processor: Run image conversions (JPG, WebP, AVIF, etc.)
+    Processor->>Storage: Upload converted files to backends (S3, GCS, Direct)
+    Processor->>Processor: Store success record in database
+    Processor->>Callback: Send completion webhook (if configured)
+    Processor->>Processor: Cleanup temp directory
+    Processor->>Processor: Mark job as "completed"
+
+    %% Error Handling
+    alt Conversion/Upload fails
+        Processor->>Processor: Store failure record in database
+        Processor->>Processor: Mark job as "failed"
+        Processor->>Queue: Remove from pending queue
+    end
+
+    %% Cancellation
+    Client->>Server: DELETE /cancel?hash=<sha256>
+    alt Job is pending
+        Server->>Queue: Remove from pending queue
+        Server->>Processor: Cancel context (cleanup temp files)
+        Server->>Client: Job cancelled successfully
+    else Job is processing
+        Server->>Client: Cannot cancel (already processing)
+    end
+```
+
+### Pipeline Steps Explained
+
+1. **Upload & Validation**
+   - Client sends JWT token + image file via multipart form
+   - Server validates JWT and extracts job specifications
+   - File is hashed (SHA256) and saved to temporary directory
+   - Job instructions are written to `instructions.json`
+   - Job is added to pending queue, response sent immediately
+
+2. **Queue Processing**
+   - Background processor continuously monitors pending queue
+   - Jobs are processed one at a time (no concurrency limits)
+   - Failed jobs are removed from queue to prevent infinite retries
+
+3. **Image Processing**
+   - Instructions loaded from `instructions.json`
+   - Multiple conversions run based on JWT specifications
+   - Output files saved to `output/` subdirectory
+
+4. **Storage & Distribution**
+   - Converted files uploaded to configured storage backends
+   - S3, Google Cloud Storage, SFTP, or direct HTTP serving
+   - Files organized by JWT-specified subdirectories
+
+5. **Completion & Cleanup**
+   - Success/failure records stored in persistent database
+   - HTTP callbacks sent with custom headers (if configured)
+   - Temporary directories cleaned up automatically
+
+6. **Monitoring & Control**
+   - Job status can be queried via `GET /status?hash=<sha256>`
+   - Pending jobs can be cancelled via `DELETE /cancel?hash=<sha256>`
+   - Success/failure records available via query endpoints
+
+### Data Flow
+
+```text
+JWT Token → Job Specs → Temp Storage → Queue → Processing → Storage Backends
+       ↓           ↓           ↓         ↓         ↓            ↓
+   Authenticate  Parse      Save File  Enqueue  Convert     Upload
+   & Authorize  Formats    + Hash     Job      Images      Files
+```
+
+---
 
 ### ✅ Job Specification (JWT Payload)
 
@@ -133,6 +233,23 @@ export PIXERVE_DATA_DIR="/path/to/your/data/directory"
 - Failures database: `./data/failures.db`
 
 The data directory and its subdirectories will be created automatically on first run.
+
+#### Direct File Serving Directory
+
+When using `directHost: true` in JWT specifications, processed images are served directly by Pixerve's HTTP server. Configure the base directory where files are stored.
+
+**Environment Variable:**
+
+```bash
+export PIXERVE_SERVE_DIR="/path/to/serve/directory"
+```
+
+**Default Behavior:**
+
+- Direct serve directory: `./serve` relative to the executable
+- Files accessible at: `http://localhost:8080/files/{subDir}/{filename}`
+
+The serve directory and its subdirectories will be created automatically during processing.
 
 ### Running
 
@@ -240,7 +357,22 @@ file: <image-file>
 }
 ```
 
-### 3. Completion Callbacks
+### 3. Access Processed Files
+
+When `directHost: true` is specified in the JWT, processed images are served directly by Pixerve.
+
+**Access URLs**: `GET /files/{subDir}/{filename}`
+
+Example URLs for the upload response above:
+
+- `http://localhost:8080/files/tenant-123/hash_original_600_800_.jpg`
+- `http://localhost:8080/files/tenant-123/hash_original_300_400_.jpg`
+- `http://localhost:8080/files/tenant-123/hash_original_600_800_.webp`
+- `http://localhost:8080/files/tenant-123/hash_original.jpg`
+
+**Note**: The `subDir` comes from the `subDir` field in your JWT job specification.
+
+### 4. Completion Callbacks
 
 Pixerve supports HTTP callbacks when job processing completes successfully. Include `completionCallback` and optional `callbackHeaders` in your JWT job specification.
 
