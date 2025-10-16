@@ -17,8 +17,26 @@ import (
 	"time"
 )
 
-// Build-time variables (injected by ldflags)
-
+// main is the entry point for the Pixerve image processing server.
+// It performs the following initialization steps:
+// 1. Initializes all database stores (credentials, failures, success)
+// 2. Opens the task queue for async job processing
+// 3. Scans for any pending jobs from previous runs
+// 4. Starts background cleanup and job processing routines
+// 5. Registers HTTP routes for the REST API
+// 6. Sets up file serving for processed images
+// 7. Starts the HTTP server with graceful shutdown handling
+//
+// The server provides endpoints for:
+// - Image upload and processing (/upload)
+// - Health checks (/health)
+// - Job status monitoring (/status, /cancel)
+// - Success/failure tracking (/success, /failures)
+// - Direct file serving (/files/)
+//
+// Environment variables:
+// - PIXERVE_DATA_DIR: Custom data directory (default: ./data)
+// - PIXERVE_SERVE_DIR: Custom serve directory (default: ./serve)
 func main() {
 	logger.Info("Starting Pixerve server initialization")
 

@@ -1,0 +1,257 @@
+# Pixerve Server - LLM Context
+
+## Project Overview
+
+Pixerve is a high-performance Go-based image processing server that provides RESTful APIs for uploading, converting, and serving images. It supports multiple output formats (AVIF, WebP, JPEG/PNG) and storage backends (local filesystem, Google Cloud Storage, AWS S3).
+
+## File Structure & Purpose
+
+### Root Directory Files
+- `go.mod` - Go module definition with dependencies
+- `go.sum` - Go module checksums
+- `main.go` - Application entry point, HTTP server setup, route registration
+- `pixerve` - Compiled binary (gitignored)
+- `README.MD` - Project documentation
+- `LICENSE` - MIT license
+- `Makefile` - Build automation with version injection
+- `llm.txt` - This context file for LLMs
+
+### Configuration & Environment
+- `.env.example` - Environment variable template for configuration
+- `jwt.json` - JWT authentication secrets (gitignored)
+- `.gitignore` - Git ignore rules (excludes data/, binaries, logs)
+- `go.work` - Go workspace file (optional)
+
+### Core Directories
+
+#### `config/` - Configuration Management
+- `data.go` - Data directory and serve directory path resolution
+- `jwt_secret.go` - JWT secret loading and validation
+
+#### `routes/` - HTTP Route Handlers
+- `health.go` - Health check endpoint with system status
+- `upload.go` - File upload handling with JWT auth
+- `register.go` - User registration and authentication
+
+#### `taskQueue/` - Async Processing System
+- `queue.go` - Generic LevelDB-backed queue implementation
+- `convert_queue.go` - Convert queue wrapper with environment-based path resolution
+- `convert_queue_test.go` - Unit tests for queue functionality
+
+#### `job/` - Background Job Processing
+- `processing.go` - Image conversion job execution and result handling
+
+#### `models/` - Data Structures
+- `job.go` - Job data models and serialization
+- `jwt.go` - JWT token structures
+- `response_object.go` - API response formats
+
+#### `encoder/` - Image Encoding Backends
+- `encoder.go` - Encoder interface and factory
+- `avif.go` - AVIF image encoding implementation
+- `webp.go` - WebP image encoding implementation
+- `jpeg_png.go` - JPEG/PNG processing and optimization
+
+#### `writerBackends/` - Storage Backends
+- `directServe.go` - Local filesystem storage with HTTP serving
+- `gcp.go` - Google Cloud Storage integration
+- `s3.go` - AWS S3 integration
+
+#### `utils/` - Utility Functions
+- `jwt_create.ts.txt` - Legacy JWT creation utilities (TypeScript)
+- `jwt_decoder.go` - JWT token decoding and validation
+- `rns_generator.go` - Random name/string generation for file naming
+
+#### `logger/` - Logging System
+- `logger.go` - Structured logging with levels and formatting
+
+### Data & Runtime Directories (Gitignored)
+- `data/` - Database files (ConvertQueue.db, success.db, failures.db)
+- `serve/` - Processed files served directly by HTTP server
+- `success/` - Successfully processed job tracking
+- `failures/` - Failed job tracking and error logs
+- `server.log` - Application runtime logs
+
+### Development & Testing
+- `tests/` - Integration and end-to-end tests
+- `integration-tests/` - Full system integration tests
+- `credentials/` - Test/development credentials (gitignored)
+- `Pixerve.postman_collection.json` - API testing collection
+- `SUGGESTIONS.md` - Development notes and improvement ideas
+
+## Architecture
+
+### Core Components
+
+**HTTP Server & Routes**
+- `/health` - Health check endpoint with system status, uptime, and version info
+- `/upload` - File upload endpoint with JWT authentication
+- `/register` - User registration/authentication
+
+**Task Queue System**
+- Uses LevelDB-backed queues for async image processing
+- `ConvertQueue` handles conversion jobs
+- Separate databases for success/failure tracking
+
+**Writer Backends**
+- `directServe` - Local filesystem storage with HTTP serving
+- `gcp` - Google Cloud Storage integration
+- `s3` - AWS S3 integration
+
+**Encoder Backends**
+- `avif` - AVIF encoding
+- `webp` - WebP encoding
+- `jpeg_png` - JPEG/PNG processing and optimization
+
+### Data Flow
+
+1. Client uploads image via `/upload` with JWT
+2. File stored temporarily and job queued
+3. Async worker processes conversion
+4. Result stored via configured writer backend
+5. Success/failure tracked in databases
+
+## Key Design Decisions
+
+### Data Directory Structure (Recent Change)
+
+**Decision:** Database files moved from project root to configurable `data/` directory
+
+**Rationale:**
+- Keeps project root clean for development
+- Allows flexible deployment configurations
+- Prevents accidental commit of data files
+- `data/` directory added to `.gitignore`
+
+**Configuration:** `PIXERVE_DATA_DIR` environment variable (defaults to `./data`)
+
+### Serve Directory Configuration
+
+**Decision:** `PIXERVE_SERVE_DIR` is configurable for server administrators but not end users
+
+**Rationale:**
+- Server admins need deployment flexibility (different environments)
+- End users (API consumers) should not control file serving paths
+- Security: Prevents path manipulation attacks
+- Defaults to `./serve` relative to executable
+
+### Health Endpoint Design
+
+**Decision:** Comprehensive health check with formatted uptime and start time
+
+**Rationale:**
+- Load balancer compatibility (simple status checks)
+- Monitoring system integration (structured JSON)
+- Debugging support (uptime, version, start time with timezone)
+- Uptime formatted as "Xd Yh Zm Ws" for readability
+
+### Queue Implementation
+
+**Decision:** LevelDB-backed queues instead of in-memory or Redis
+
+**Rationale:**
+- Persistence across server restarts
+- No external dependencies for basic functionality
+- Good performance for file processing workloads
+- Simple file-based storage
+
+### JWT Authentication
+
+**Decision:** JWT-based auth with configurable secrets
+
+**Rationale:**
+- Stateless authentication
+- Scalable across multiple server instances
+- Secure token-based access
+- Secret stored in `jwt.json` (gitignored)
+
+## Configuration
+
+### Environment Variables
+
+- `PIXERVE_DATA_DIR` - Database directory (default: `./data`)
+- `PIXERVE_SERVE_DIR` - File serving directory (default: `./serve`)
+- `PIXERVE_MAX_WORKERS` - Maximum concurrent job workers (default: `NumCPU-1`, minimum `1`, range: `1-10`)
+
+### Files
+
+- `.env.example` - Configuration template
+- `jwt.json` - JWT secrets (not in repo)
+- `data/` - Database files (gitignored)
+- `serve/` - Served files (gitignored)
+
+## Development Setup
+
+### Prerequisites
+- Go 1.19+
+- LevelDB development headers
+
+### Building
+```bash
+go build -o pixerve .
+```
+
+### Running
+```bash
+./pixerve
+```
+
+### Testing
+```bash
+go test ./...
+```
+
+## Recent Changes & Rationale
+
+### Health Endpoint Improvements
+- Added uptime formatting and start time
+- Timezone-aware timestamps
+- Optimized formatting implementation
+
+### Data Organization
+- Moved databases to dedicated directory
+- Added configurability for deployments
+- Improved git hygiene
+
+### Configuration Refinement
+- Clarified admin vs user configuration boundaries
+- Removed user-accessible path settings
+- Maintained deployment flexibility
+
+## Non-Obvious Implementation Details
+
+### Database File Paths
+- `ConvertQueue.db` uses configurable data directory
+- Success/failure databases follow same pattern
+- All database operations are thread-safe
+
+### File Serving
+- Direct serve uses relative paths from executable
+- Configurable base directory for deployment flexibility
+- Files served directly by HTTP server for performance
+
+### Async Processing
+- Queue-based processing prevents blocking uploads
+- LevelDB provides ACID guarantees for job tracking
+- Separate success/failure tracking for monitoring
+- **Worker parallelism**: Configurable concurrent jobs (default NumCPU-1, max 10)
+- **I/O concurrency**: Multiple file writes happen concurrently using goroutines
+
+### Image Processing Pipeline
+- Multiple encoder backends for format flexibility
+- Writer backends abstract storage implementation
+- Extensible architecture for new formats/backends
+
+## Deployment Considerations
+
+- Database files should be on persistent storage
+- Serve directory should be accessible to HTTP server
+- Environment variables for different deployment environments
+- Health endpoint for load balancer configuration
+
+## Future Considerations
+
+- Consider Redis queues for high-throughput scenarios
+- Add metrics/monitoring endpoints
+- Implement rate limiting
+- Add image optimization pipelines

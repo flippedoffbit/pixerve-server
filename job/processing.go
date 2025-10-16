@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"pixerve/config"
@@ -20,7 +21,25 @@ import (
 	writerbackends "pixerve/writerBackends"
 )
 
-// ProcessJob processes a single job from the pending queue
+// ProcessJob processes a single image conversion job from the pending queue.
+// This is the core job processing function that handles the complete image conversion pipeline.
+//
+// Parameters:
+//   - ctx: context for cancellation and timeout handling
+//   - jobDir: temporary directory containing the uploaded file and instructions
+//
+// Process flow:
+// 1. Registers image encoders (AVIF, WebP, JPEG/PNG)
+// 2. Sets up cleanup handling for job cancellation
+// 3. Reads processing instructions from the job directory
+// 4. Validates input file and conversion parameters
+// 5. Performs image conversion using appropriate encoder
+// 6. Stores result using configured writer backend
+// 7. Updates success/failure tracking databases
+// 8. Cleans up temporary files
+//
+// The function handles various error conditions and ensures proper cleanup
+// even when jobs are cancelled or fail partway through processing.
 func ProcessJob(ctx context.Context, jobDir string) error {
 	// Ensure encoders are registered
 	encoder.RegisterDefaults()
@@ -188,42 +207,72 @@ func getExtensionForEncoder(encoderName string) string {
 }
 
 // processWriters writes converted files to all configured storage backends
+// Uses goroutines for concurrent I/O operations since writing is I/O bound, not CPU intensive.
+// This allows multiple files to be uploaded simultaneously across different backends.
+//
+// Concurrency strategy:
+// - Each file-backend combination runs in its own goroutine
+// - Errors are collected via a buffered channel
+// - WaitGroup ensures all operations complete before returning
+// - Context cancellation is checked in each goroutine
+//
+// Performance benefits:
+// - Network I/O (S3, GCS) and disk I/O (directServe) happen concurrently
+// - No CPU contention since operations are I/O bound
+// - Faster overall job completion for multi-format/multi-backend jobs
 func processWriters(ctx context.Context, instr JobInstructions, convertedFiles []string) error {
+	// Channel to collect errors from concurrent writes
+	errChan := make(chan error, len(instr.Job.WriterJobs)*len(convertedFiles))
+	var wg sync.WaitGroup
+
 	for _, writerJob := range instr.Job.WriterJobs {
-		// Check for cancellation
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("job cancelled during writing: %w", ctx.Err())
-		default:
-		}
-
 		for _, file := range convertedFiles {
-			// Check for cancellation
-			select {
-			case <-ctx.Done():
-				return fmt.Errorf("job cancelled during writing: %w", ctx.Err())
-			default:
-			}
+			wg.Add(1)
+			go func(writerJob models.WriterJob, file string) {
+				defer wg.Done()
 
-			filePath := filepath.Join(instr.FilePath, "output", file)
+				// Check for cancellation
+				select {
+				case <-ctx.Done():
+					errChan <- fmt.Errorf("job cancelled during writing: %w", ctx.Err())
+					return
+				default:
+				}
 
-			// Open the file for reading
-			reader, err := os.Open(filePath)
-			if err != nil {
-				return fmt.Errorf("failed to open file %s: %w", filePath, err)
-			}
+				filePath := filepath.Join(instr.FilePath, "output", file)
 
-			// Prepare access info
-			accessInfo := prepareAccessInfo(writerJob, file, instr.Job.SubDir)
+				// Open the file for reading
+				reader, err := os.Open(filePath)
+				if err != nil {
+					errChan <- fmt.Errorf("failed to open file %s: %w", filePath, err)
+					return
+				}
+				defer reader.Close()
 
-			// Write to backend (closes reader when done)
-			if err := writerbackends.WriteImage(ctx, accessInfo, reader, writerJob.Type); err != nil {
-				reader.Close() // Close on error
-				return fmt.Errorf("failed to write %s to %s: %w", file, writerJob.Type, err)
-			}
+				// Prepare access info
+				accessInfo := prepareAccessInfo(writerJob, file, instr.Job.SubDir)
 
-			// Close reader after successful write
-			reader.Close()
+				// Write to backend
+				if err := writerbackends.WriteImage(ctx, accessInfo, reader, writerJob.Type); err != nil {
+					errChan <- fmt.Errorf("failed to write %s to %s: %w", file, writerJob.Type, err)
+					return
+				}
+
+				logger.Debugf("Successfully wrote %s to %s backend", file, writerJob.Type)
+			}(writerJob, file)
+		}
+	}
+
+	// Close error channel when all goroutines complete
+	go func() {
+		wg.Wait()
+		close(errChan)
+	}()
+
+	// Collect any errors
+	for err := range errChan {
+		if err != nil {
+			return err
 		}
 	}
 

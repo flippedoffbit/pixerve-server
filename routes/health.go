@@ -30,7 +30,13 @@ type HealthResponse struct {
 // Global start time for uptime calculation
 var startTime = time.Now()
 
-// formatUptime formats a duration into days, hours, minutes, seconds
+// formatUptime formats a duration into a human-readable string showing days, hours, minutes, and seconds.
+// This provides a more readable uptime display than Go's default duration string.
+// Example: 90061 seconds becomes "1d 1h 1m 1s"
+// Parameters:
+//   - d: time.Duration to format
+//
+// Returns: formatted string like "Xd Yh Zm Ws"
 func formatUptime(d time.Duration) string {
 	days := int(d.Hours() / 24)
 	hours := int(d.Hours()) % 24
@@ -39,7 +45,15 @@ func formatUptime(d time.Duration) string {
 	return fmt.Sprintf("%dd %dh %dm %ds", days, hours, minutes, seconds)
 }
 
-// HealthHandler provides a basic health check endpoint for load balancers and monitoring
+// HealthHandler provides a comprehensive health check endpoint for load balancers and monitoring systems.
+// It returns system status, uptime, version information, and server start time in JSON format.
+// This endpoint is designed to be lightweight and fast for health checking.
+//
+// HTTP Method: GET
+// Response: JSON with status, timestamp, version, go_version, uptime, start_time
+//
+// The uptime is formatted as "Xd Yh Zm Ws" for readability.
+// The start_time includes timezone information for debugging across deployments.
 func HealthHandler(w http.ResponseWriter, r *http.Request) {
 	logger.Debugf("Health check request: method=%s, remoteAddr=%s", r.Method, r.RemoteAddr)
 

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"sync"
 	"time"
 
@@ -28,6 +30,34 @@ var (
 	jobStates   = make(map[string]JobState)           // hash -> job state
 	mu          sync.RWMutex
 )
+
+// getMaxWorkers returns the maximum number of concurrent workers for job processing.
+// Configurable via PIXERVE_MAX_WORKERS environment variable.
+// Defaults to runtime.NumCPU() - 1 (minimum 1) to utilize available cores while leaving one for system processes.
+// Values are clamped between 1 and 10 to prevent resource exhaustion.
+func getMaxWorkers() int {
+	const maxWorkersLimit = 10
+	const minWorkers = 1
+
+	// Default to NumCPU - 1, minimum 1
+	defaultWorkers := runtime.NumCPU() - 1
+	if defaultWorkers < minWorkers {
+		defaultWorkers = minWorkers
+	}
+
+	if env := os.Getenv("PIXERVE_MAX_WORKERS"); env != "" {
+		if workers, err := strconv.Atoi(env); err == nil {
+			if workers < minWorkers {
+				return minWorkers
+			}
+			if workers > maxWorkersLimit {
+				return maxWorkersLimit
+			}
+			return workers
+		}
+	}
+	return defaultWorkers
+}
 
 // AddPendingJob adds a job directory to the pending list
 func AddPendingJob(dir string) {
@@ -175,8 +205,33 @@ func processJob(jobDir string) error {
 	return err
 }
 
-// ProcessPendingJobs runs in a loop processing pending jobs
+// ProcessPendingJobs runs in a continuous loop processing pending image conversion jobs.
+// This function is designed to run as a background goroutine and handles the job queue.
+//
+// Processing logic:
+// 1. Continuously checks for pending jobs every 1 second when queue is empty
+// 2. Processes jobs concurrently using a worker pool (configurable max workers, default 2)
+// 3. Uses a semaphore to limit concurrent workers and prevent resource exhaustion
+// 4. For each job:
+//   - Calls processJob() to handle the conversion
+//   - Removes job from pending queue on success
+//   - Removes failed jobs from queue to prevent infinite retry loops
+//   - Logs processing status and errors
+//
+// Concurrency benefits:
+// - Multiple jobs can be processed simultaneously (configurable via PIXERVE_MAX_WORKERS)
+// - I/O-bound operations (file writing) happen concurrently within each job
+// - CPU-bound operations (image encoding) are naturally parallelized
+//
+// Configuration:
+// - PIXERVE_MAX_WORKERS: Number of concurrent workers (default: NumCPU-1, minimum 1, range: 1-10)
+//
+// This function runs indefinitely and should be started as a goroutine in main().
+// It provides the async processing capability that allows the HTTP server to remain responsive.
 func ProcessPendingJobs() {
+	maxWorkers := getMaxWorkers()
+	semaphore := make(chan struct{}, maxWorkers)
+
 	for {
 		jobs := GetPendingJobs()
 		if len(jobs) == 0 {
@@ -185,17 +240,31 @@ func ProcessPendingJobs() {
 		}
 		logger.Infof("Processing %d pending jobs", len(jobs))
 
+		// Process jobs concurrently with worker limit
+		var wg sync.WaitGroup
 		for _, jobDir := range jobs {
-			// Process the job
-			if err := processJob(jobDir); err != nil {
-				logger.Errorf("Failed to process job in %s: %v", jobDir, err)
-				// Remove failed jobs from pending queue to prevent infinite retries
-				RemovePendingJob(jobDir)
-			} else {
-				// Remove from pending on success
-				RemovePendingJob(jobDir)
-				logger.Infof("Processed job in %s", jobDir)
-			}
+			wg.Add(1)
+			go func(jobDir string) {
+				defer wg.Done()
+
+				// Acquire worker slot
+				semaphore <- struct{}{}
+				defer func() { <-semaphore }()
+
+				// Process the job
+				if err := processJob(jobDir); err != nil {
+					logger.Errorf("Failed to process job in %s: %v", jobDir, err)
+					// Remove failed jobs from pending queue to prevent infinite retries
+					RemovePendingJob(jobDir)
+				} else {
+					// Remove from pending on success
+					RemovePendingJob(jobDir)
+					logger.Infof("Processed job in %s", jobDir)
+				}
+			}(jobDir)
 		}
+
+		// Wait for all jobs in this batch to complete
+		wg.Wait()
 	}
 }
