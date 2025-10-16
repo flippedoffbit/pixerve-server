@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"pixerve/config"
@@ -55,6 +56,56 @@ func computeHash(reader io.Reader) (string, error) {
 	hashStr := hex.EncodeToString(hash.Sum(nil))
 	logger.Debugf("Hash computed: %s", hashStr)
 	return hashStr, nil
+}
+
+// checkDuplicateUpload checks if user is uploading a duplicate and returns the final hash to use
+func checkDuplicateUpload(hashSum string, userSubject string) (string, bool, error) {
+	logger.Debugf("Checking for duplicate upload: hash=%s, user=%s", hashSum, userSubject)
+
+	// First check if this exact user+hash combination is already being processed
+	userHash := fmt.Sprintf("%s_%s", hashSum, userSubject)
+	tempDirPath := filepath.Join(os.TempDir(), userHash)
+	if _, err := os.Stat(tempDirPath); err == nil {
+		logger.Warnf("Upload rejected: user %s already processing file with hash %s", userSubject, hashSum)
+		return "", true, fmt.Errorf("file with hash %s is already being processed by this user", hashSum)
+	}
+
+	// Check if this hash exists for any user (including this one with suffix)
+	basePattern := filepath.Join(os.TempDir(), fmt.Sprintf("%s_*", hashSum))
+	matches, err := filepath.Glob(basePattern)
+	if err != nil {
+		logger.Errorf("Failed to glob for existing hashes: %v", err)
+		return "", false, err
+	}
+
+	// If no matches, this is the first upload of this file
+	if len(matches) == 0 {
+		logger.Debugf("No existing uploads found for hash %s", hashSum)
+		return userHash, false, nil
+	}
+
+	// Find the highest suffix number used for this hash
+	maxSuffix := 0
+	for _, match := range matches {
+		base := filepath.Base(match)
+		parts := strings.Split(base, "_")
+		if len(parts) >= 2 {
+			// Extract suffix if it exists (format: hash_suffix or hash_user_suffix)
+			lastPart := parts[len(parts)-1]
+			if suffix, err := strconv.Atoi(lastPart); err == nil {
+				if suffix > maxSuffix {
+					maxSuffix = suffix
+				}
+			}
+		}
+	}
+
+	// Use next available suffix
+	nextSuffix := maxSuffix + 1
+	finalHash := fmt.Sprintf("%s_%d", hashSum, nextSuffix)
+	logger.Infof("Duplicate file detected, using suffixed hash: %s (original: %s)", finalHash, hashSum)
+
+	return finalHash, false, nil
 }
 
 // createTempDir creates temp directory with hash name
@@ -204,20 +255,29 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Debugf("File hash computed: %s", hashSum)
 
-	// Check if job with this hash is already being processed
-	tempDirPath := filepath.Join(os.TempDir(), hashSum)
-	if _, err := os.Stat(tempDirPath); err == nil {
-		logger.Warnf("Upload rejected: job with hash %s is already being processed", hashSum)
-		http.Error(w, fmt.Sprintf("File with hash %s is already being processed", hashSum), http.StatusConflict)
+	// Check for duplicate uploads (user-aware)
+	logger.Debug("Checking for duplicate uploads")
+	finalHash, isDuplicate, err := checkDuplicateUpload(hashSum, claims.Subject)
+	if err != nil {
+		logger.Errorf("Failed to check for duplicates: %v", err)
+		http.Error(w, err.Error(), http.StatusConflict)
 		return
 	}
+
+	if isDuplicate {
+		logger.Warnf("Upload rejected: duplicate file for user %s", claims.Subject)
+		http.Error(w, fmt.Sprintf("File with hash %s is already being processed by this user", hashSum), http.StatusConflict)
+		return
+	}
+
+	logger.Debugf("Using hash for processing: %s", finalHash)
 
 	// Reset file pointer to beginning
 	file.Seek(0, 0)
 
-	// Create temp directory with hash
-	logger.Debugf("Creating temporary directory: %s", hashSum)
-	tempDir, err := createTempDir(hashSum)
+	// Create temp directory with final hash
+	logger.Debugf("Creating temporary directory: %s", finalHash)
+	tempDir, err := createTempDir(finalHash)
 	if err != nil {
 		logger.Errorf("Failed to create temp directory: %v", err)
 		http.Error(w, "Failed to create temp directory", http.StatusInternalServerError)
@@ -257,14 +317,14 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Calculate expected output filenames
 	logger.Debug("Calculating expected output filenames")
-	expectedFiles := calculateExpectedFiles(hashSum, header.Filename, combinedJob.ConversionJobs)
+	expectedFiles := calculateExpectedFiles(finalHash, header.Filename, combinedJob.ConversionJobs)
 	logger.Debugf("Expected output files: %v", expectedFiles)
 
 	// Create instructions
 	instr := job.JobInstructions{
 		FilePath:     tempDir,
 		OriginalFile: header.Filename,
-		Hash:         hashSum,
+		Hash:         finalHash,
 		Job:          combinedJob,
 	}
 
@@ -282,6 +342,6 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 	logger.Info("Adding job to pending queue")
 	job.AddPendingJob(tempDir)
 
-	logger.Infof("Upload completed successfully: hash=%s, files=%v", hashSum, expectedFiles)
-	respondSuccess(w, hashSum, expectedFiles)
+	logger.Infof("Upload completed successfully: hash=%s, files=%v", finalHash, expectedFiles)
+	respondSuccess(w, finalHash, expectedFiles)
 }
