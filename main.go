@@ -13,30 +13,43 @@ import (
 )
 
 func main() {
+	logger.Info("Starting Pixerve server initialization")
+
 	// Initialize credentials store
+	logger.Debug("Initializing credentials database")
 	if err := credentials.OpenDB(config.GetCredentialsDBPath()); err != nil {
 		logger.Fatalf("Failed to initialize credentials store: %v", err)
 	}
 	defer credentials.CloseDB()
+	logger.Info("Credentials database initialized successfully")
 
 	// Initialize failure store
+	logger.Debug("Initializing failures database")
 	if err := failures.Init(config.GetFailuresDBPath()); err != nil {
 		logger.Fatalf("Failed to initialize failure store: %v", err)
 	}
 	defer failures.Close()
+	logger.Info("Failures database initialized successfully")
 
 	// Initialize success store
+	logger.Debug("Initializing success database")
 	if err := success.Init(config.GetSuccessDBPath()); err != nil {
 		logger.Fatalf("Failed to initialize success store: %v", err)
 	}
 	defer success.Close()
+	logger.Info("Success database initialized successfully")
 
 	// Scan for pending jobs on startup
+	logger.Info("Scanning for pending jobs on startup")
 	job.ScanForPendingJobs()
+	logger.Info("Pending jobs scan completed")
 
 	// Start cleanup routine for old logs (runs every 24 hours)
+	logger.Info("Starting cleanup routine (runs every 24 hours)")
 	go cleanupRoutine()
 
+	// Register HTTP routes
+	logger.Info("Registering HTTP routes")
 	http.HandleFunc("/upload", routes.UploadHandler)
 	http.HandleFunc("/health", routes.HealthHandler)
 	http.HandleFunc("/version", routes.VersionHandler)
@@ -46,28 +59,39 @@ func main() {
 	http.HandleFunc("/failures/list", routes.FailureListHandler)
 	http.HandleFunc("/success", routes.SuccessQueryHandler)
 	http.HandleFunc("/success/list", routes.SuccessListHandler)
-	http.ListenAndServe(":8080", nil)
+	logger.Info("HTTP routes registered successfully")
+
+	logger.Infof("Pixerve server starting on port 8080")
+	if err := http.ListenAndServe(":8080", nil); err != nil {
+		logger.Fatalf("Server failed to start: %v", err)
+	}
 }
 
 // cleanupRoutine periodically cleans up old success and failure records
 func cleanupRoutine() {
+	logger.Info("Cleanup routine started - will run every 24 hours")
 	ticker := time.NewTicker(24 * time.Hour) // Run every 24 hours
 	defer ticker.Stop()
 
 	for range ticker.C {
+		logger.Info("Running scheduled cleanup of old records")
 		// Clean up records older than 30 days
 		maxAge := 30 * 24 * time.Hour
 
+		logger.Debugf("Cleaning up success records older than %v", maxAge)
 		if err := success.CleanupOldRecords(maxAge); err != nil {
 			logger.Errorf("Failed to cleanup old success records: %v", err)
 		} else {
-			logger.Infof("Cleaned up old success records older than %v", maxAge)
+			logger.Info("Successfully cleaned up old success records")
 		}
 
+		logger.Debugf("Cleaning up failure records older than %v", maxAge)
 		if err := failures.CleanupOldRecords(maxAge); err != nil {
 			logger.Errorf("Failed to cleanup old failure records: %v", err)
 		} else {
-			logger.Infof("Cleaned up old failure records older than %v", maxAge)
+			logger.Info("Successfully cleaned up old failure records")
 		}
+
+		logger.Info("Scheduled cleanup completed")
 	}
 }

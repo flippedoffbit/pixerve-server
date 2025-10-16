@@ -38,11 +38,13 @@ class TestRunner {
     private logger: Logger;
     private program: Command;
     private baseUrl: string;
+    private logLevel: LogLevel;
 
     constructor() {
         this.logger = new Logger(LogLevel.INFO, 'RUNNER');
         this.program = new Command();
         this.baseUrl = process.env.PIXERVE_URL || 'http://localhost:8080';
+        this.logLevel = LogLevel.INFO;
 
         this.setupCLI();
     }
@@ -53,10 +55,29 @@ class TestRunner {
             .description('Run Pixerve integration tests')
             .version('1.0.0')
             .option('-u, --url <url>', 'Pixerve server URL', this.baseUrl)
-            .option('-v, --verbose', 'Enable verbose logging')
+            .option('-v, --verbose', 'Enable verbose logging (DEBUG level)')
+            .option('-l, --log-level <level>', 'Set log level (ERROR, WARN, INFO, DEBUG, TRACE)', 'INFO')
             .option('--no-color', 'Disable colored output')
             .option('--json', 'Output results as JSON')
             .option('--junit <file>', 'Output results in JUnit XML format');
+
+        // Set log level based on options
+        this.program.on('option:verbose', () => {
+            this.logLevel = LogLevel.DEBUG;
+            this.logger = new Logger(this.logLevel, 'RUNNER');
+        });
+
+        this.program.on('option:log-level', (level) => {
+            const levelMap: Record<string, LogLevel> = {
+                'ERROR': LogLevel.ERROR,
+                'WARN': LogLevel.WARN,
+                'INFO': LogLevel.INFO,
+                'DEBUG': LogLevel.DEBUG,
+                'TRACE': LogLevel.TRACE
+            };
+            this.logLevel = levelMap[ level.toUpperCase() ] || LogLevel.INFO;
+            this.logger = new Logger(this.logLevel, 'RUNNER');
+        });
 
         this.program
             .command('all')
@@ -88,30 +109,35 @@ class TestRunner {
     }
 
     private getTestSuites (): TestSuite[] {
+        const basicTests = new BasicTests(this.baseUrl, this.logLevel);
+        const codecTests = new CodecTests(this.baseUrl, this.logLevel);
+        const backendTests = new BackendTests(this.baseUrl, this.logLevel);
+        const edgeCaseTests = new EdgeCaseTests(this.baseUrl, this.logLevel);
+
         return [
             {
                 name: 'Basic Tests',
                 description: 'Basic API functionality (health, upload, status, callbacks)',
-                run: () => new BasicTests(this.baseUrl).runAll(),
-                getResults: () => new BasicTests(this.baseUrl).getResults(),
+                run: () => basicTests.runAll(),
+                getResults: () => basicTests.getResults(),
             },
             {
                 name: 'Codec Tests',
                 description: 'Image codec and format testing (JPG, PNG, WebP, AVIF)',
-                run: () => new CodecTests(this.baseUrl).runAll(),
-                getResults: () => new CodecTests(this.baseUrl).getResults(),
+                run: () => codecTests.runAll(),
+                getResults: () => codecTests.getResults(),
             },
             {
                 name: 'Backend Tests',
                 description: 'Writer backend testing (S3, GCS, SFTP, direct hosting)',
-                run: () => new BackendTests(this.baseUrl).runAll(),
-                getResults: () => new BackendTests(this.baseUrl).getResults(),
+                run: () => backendTests.runAll(),
+                getResults: () => backendTests.getResults(),
             },
             {
                 name: 'Edge Case Tests',
                 description: 'Edge cases and error conditions (large files, invalid formats, network errors)',
-                run: () => new EdgeCaseTests(this.baseUrl).runAll(),
-                getResults: () => new EdgeCaseTests(this.baseUrl).getResults(),
+                run: () => edgeCaseTests.runAll(),
+                getResults: () => edgeCaseTests.getResults(),
             },
         ];
     }
@@ -119,6 +145,7 @@ class TestRunner {
     private async runAllTests (): Promise<void> {
         this.logger.info('Starting all Pixerve integration tests');
         this.logger.info(`Server URL: ${ this.baseUrl }`);
+        this.logger.debug(`Log level: ${ LogLevel[ this.logLevel ] }`);
 
         const suites = this.getTestSuites();
         const results = [];
@@ -156,23 +183,23 @@ class TestRunner {
     }
 
     private async runBasicTests (): Promise<void> {
-        const suite = this.getTestSuites()[ 0 ];
-        await suite.run();
+        const test = new BasicTests(this.baseUrl, this.logLevel);
+        await test.runAll();
     }
 
     private async runCodecTests (): Promise<void> {
-        const suite = this.getTestSuites()[ 1 ];
-        await suite.run();
+        const test = new CodecTests(this.baseUrl, this.logLevel);
+        await test.runAll();
     }
 
     private async runBackendTests (): Promise<void> {
-        const suite = this.getTestSuites()[ 2 ];
-        await suite.run();
+        const test = new BackendTests(this.baseUrl, this.logLevel);
+        await test.runAll();
     }
 
     private async runEdgeCaseTests (): Promise<void> {
-        const suite = this.getTestSuites()[ 3 ];
-        await suite.run();
+        const test = new EdgeCaseTests(this.baseUrl, this.logLevel);
+        await test.runAll();
     }
 
     private outputResults (results: any[]): void {

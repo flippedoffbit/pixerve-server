@@ -247,8 +247,8 @@ export class ImageUtils {
 
         const imageName = filename || `lorem-picsum-${ width }x${ height }-${ Date.now() }.jpg`;
         const imagePath = path.join(ImageUtils.TEST_IMAGES_DIR, imageName);
-
         const url = `https://picsum.photos/${ width }/${ height }`;
+
         logger.info('Downloading Lorem Picsum image', { url, width, height, savePath: imagePath });
 
         try {
@@ -257,16 +257,26 @@ export class ImageUtils {
                 timeout: 10000,
             });
 
+            logger.debug('Download started, piping to file');
+
             const writer = fs.createWriteStream(imagePath);
             response.data.pipe(writer);
 
             await new Promise<void>((resolve, reject) => {
-                writer.on('finish', () => resolve());
-                writer.on('error', reject);
+                writer.on('finish', () => {
+                    logger.debug('File write completed');
+                    resolve();
+                });
+                writer.on('error', (error) => {
+                    logger.error('File write failed', { error: (error as Error).message });
+                    reject(error);
+                });
             });
 
-            logger.info('Image downloaded successfully', { size: fs.statSync(imagePath).size });
+            const stats = fs.statSync(imagePath);
+            logger.info('Image downloaded successfully', { size: stats.size, path: imagePath });
             return imagePath;
+
         } catch (error) {
             const err = error as Error;
             logger.error('Failed to download image', { url, error: err.message });
@@ -364,6 +374,7 @@ export class PixerveServer {
 
     async start (): Promise<void> {
         this.logger.info('Starting Pixerve server...');
+        this.logger.debug('Building Go application first');
 
         return new Promise((resolve, reject) => {
             // Build Pixerve first
@@ -372,11 +383,17 @@ export class PixerveServer {
                 stdio: [ 'ignore', 'pipe', 'pipe' ]
             });
 
+            this.logger.debug('Go build process started');
+
             buildProcess.on('close', (code) => {
                 if (code !== 0) {
+                    this.logger.error('Go build failed', { exitCode: code });
                     reject(new Error(`Go build failed with code ${ code }`));
                     return;
                 }
+
+                this.logger.info('Go build completed successfully');
+                this.logger.debug('Starting Pixerve server process');
 
                 // Start the server
                 this.process = spawn('./pixerve', [], {
@@ -384,10 +401,12 @@ export class PixerveServer {
                     stdio: [ 'ignore', 'pipe', 'pipe' ]
                 });
 
+                this.logger.debug('Server process spawned', { pid: this.process.pid });
+
                 if (this.process.stdout) {
                     this.process.stdout.on('data', (data) => {
                         const output = data.toString();
-                        this.logger.debug('Server stdout:', output.trim());
+                        this.logger.trace('Server stdout:', output.trim());
                         if (output.includes('Server started on :8080')) {
                             this.logger.info('Pixerve server started successfully');
                             resolve();
@@ -397,7 +416,7 @@ export class PixerveServer {
 
                 if (this.process.stderr) {
                     this.process.stderr.on('data', (data) => {
-                        this.logger.debug('Server stderr:', data.toString().trim());
+                        this.logger.trace('Server stderr:', data.toString().trim());
                     });
                 }
 
@@ -408,29 +427,39 @@ export class PixerveServer {
 
                 // Timeout after 15 seconds
                 setTimeout(() => {
+                    this.logger.error('Server startup timeout reached');
                     reject(new Error('Timeout waiting for Pixerve to start'));
                 }, 15000);
             });
 
-            buildProcess.on('error', reject);
+            buildProcess.on('error', (error) => {
+                this.logger.error('Build process error', { error: error.message });
+                reject(error);
+            });
         });
     }
 
     async waitForReady (): Promise<void> {
+        this.logger.info('Waiting for server to be ready');
         await HTTPUtils.waitForEndpoint(`${ this.baseUrl }/health`);
+        this.logger.info('Server is ready and responding');
     }
 
     async stop (): Promise<void> {
         if (this.process) {
             this.logger.info('Stopping Pixerve server...');
+            this.logger.debug('Sending SIGTERM to server process', { pid: this.process.pid });
+
             this.process.kill('SIGTERM');
 
             await new Promise((resolve) => {
-                this.process!.on('close', () => {
-                    this.logger.info('Pixerve server stopped');
+                this.process!.on('close', (code) => {
+                    this.logger.info('Pixerve server stopped', { exitCode: code });
                     resolve(void 0);
                 });
             });
+        } else {
+            this.logger.warn('No server process to stop');
         }
     }
 

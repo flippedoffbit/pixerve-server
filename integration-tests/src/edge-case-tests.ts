@@ -41,11 +41,11 @@ export class EdgeCaseTests {
     private results: TestResults;
     private logger: Logger;
 
-    constructor(baseUrl = 'http://localhost:8080') {
+    constructor(baseUrl = 'http://localhost:8080', logLevel: LogLevel = LogLevel.DEBUG) {
         this.baseUrl = baseUrl;
         this.server = new PixerveServer(baseUrl);
         this.results = new TestResults();
-        this.logger = new Logger(LogLevel.DEBUG, 'EDGE');
+        this.logger = new Logger(logLevel, 'EDGE');
     }
 
     async runAll (): Promise<void> {
@@ -79,15 +79,22 @@ export class EdgeCaseTests {
 
     private async setup (): Promise<void> {
         this.logger.info('Setting up edge case tests');
+        this.logger.debug('Ensuring test images directory exists');
         ImageUtils.ensureTestImagesDir();
+        this.logger.debug('Starting Pixerve server');
         await this.server.start();
+        this.logger.debug('Waiting for server to be ready');
         await this.server.waitForReady();
+        this.logger.info('Edge case tests setup completed');
     }
 
     private async cleanup (): Promise<void> {
         this.logger.info('Cleaning up edge case tests');
+        this.logger.debug('Stopping Pixerve server');
         await this.server.stop();
+        this.logger.debug('Cleaning up test images');
         ImageUtils.cleanupTestImages();
+        this.logger.info('Edge case tests cleanup completed');
     }
 
     private async testLargeFiles (): Promise<void> {
@@ -106,12 +113,15 @@ export class EdgeCaseTests {
 
     private async testLargeFileProcessing (name: string, sizeBytes: number): Promise<void> {
         const testName = `Large File: ${ name }`;
+        this.logger.info('Testing large file processing', { name, sizeBytes: `${ (sizeBytes / (1024 * 1024)).toFixed(1) }MB` });
         const endTimer = this.results.startTest(testName);
 
         try {
+            this.logger.debug('Creating large test image', { name, sizeBytes });
             // Create a large test image by downloading and resizing
             const imagePath = await ImageUtils.downloadLoremPicsumImage(2000, 1500, `large-${ sizeBytes }.jpg`);
 
+            this.logger.debug('Creating job spec for large file processing', { name });
             const jobSpec: JobSpec = {
                 priority: 1, // Lower priority for large files
                 keepOriginal: false,
@@ -125,10 +135,12 @@ export class EdgeCaseTests {
                 subDir: 'large-files',
             };
 
+            this.logger.debug('Uploading large image and waiting for completion', { name, timeoutSeconds: 300 });
             const hash = await this.uploadImage(imagePath, jobSpec);
             const result = await this.waitForCompletion(hash, 300); // Longer timeout for large files
 
             if (result.status === 'success') {
+                this.logger.info('Large file processing test passed', { name, fileCount: result.file_count, hash });
                 this.results.recordPass(testName, 0, {
                     fileSize: sizeBytes,
                     fileCount: result.file_count,
@@ -137,7 +149,7 @@ export class EdgeCaseTests {
             } else {
                 const error = this.getErrorMessage(result);
                 // Large files might fail due to memory limits, which is acceptable
-                this.logger.warn(`Large file test failed (might be expected): ${ error }`);
+                this.logger.warn('Large file test failed (might be expected)', { name, error });
                 this.results.recordPass(testName, 0, {
                     status: 'expected failure - memory limits',
                     fileSize: sizeBytes,
@@ -603,8 +615,10 @@ export class EdgeCaseTests {
 
     // Helper methods
     private async uploadImage (imagePath: string, jobSpec: JobSpec): Promise<string> {
+        this.logger.debug('Creating JWT for image upload', { imagePath: path.basename(imagePath) });
         const jwt = await JWTUtils.createJWT(jobSpec);
 
+        this.logger.debug('Preparing form data for upload', { imagePath: path.basename(imagePath) });
         const form = new FormData();
         form.append('token', jwt);
         form.append('file', fs.createReadStream(imagePath), {
@@ -612,13 +626,16 @@ export class EdgeCaseTests {
             contentType: ImageUtils.getContentType(imagePath),
         });
 
+        this.logger.debug('Uploading image to server', { imagePath: path.basename(imagePath) });
         const response = await HTTPUtils.post(`${ this.baseUrl }/upload`, form);
         const responseData: UploadResponse = response.data;
 
         if (!responseData.hash) {
+            this.logger.error('Upload response missing hash', { imagePath: path.basename(imagePath) });
             throw new Error('Upload response missing hash');
         }
 
+        this.logger.debug('Image uploaded successfully', { hash: responseData.hash, imagePath: path.basename(imagePath) });
         return responseData.hash;
     }
 
@@ -628,12 +645,15 @@ export class EdgeCaseTests {
 
     private async waitForCompletion (hash: string, maxWaitSeconds = 120): Promise<SuccessResponse | FailureResponse> {
         const startTime = Date.now();
+        this.logger.debug('Waiting for job completion', { hash, maxWaitSeconds });
 
         while (Date.now() - startTime < maxWaitSeconds * 1000) {
+            this.logger.trace('Checking job status', { hash, elapsedSeconds: Math.floor((Date.now() - startTime) / 1000) });
             const response = await HTTPUtils.get(`${ this.baseUrl }/success?hash=${ hash }`);
             const responseData: SuccessResponse = response.data;
 
             if (responseData.status === 'success') {
+                this.logger.debug('Job completed successfully', { hash, fileCount: responseData.file_count });
                 return responseData;
             }
 
@@ -642,6 +662,7 @@ export class EdgeCaseTests {
             const failureData: any = failureResponse.data;
 
             if (failureData.status === 'failed') {
+                this.logger.warn('Job failed', { hash, error: failureData.error });
                 return failureData;
             }
 
@@ -649,6 +670,7 @@ export class EdgeCaseTests {
             await new Promise(resolve => setTimeout(resolve, 2000));
         }
 
+        this.logger.error('Job processing timeout', { hash, maxWaitSeconds });
         throw new Error(`Processing did not complete within ${ maxWaitSeconds } seconds`);
     }
 

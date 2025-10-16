@@ -12,6 +12,7 @@ test:
 clean:
 	go clean
 	rm -f pixerve
+	rm -rf tests/test_*.db
 
 # Run the server
 run:

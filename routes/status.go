@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"pixerve/job"
+	"pixerve/logger"
 )
 
 // JobStatusResponse represents the job status response
@@ -15,19 +16,25 @@ type JobStatusResponse struct {
 
 // JobStatusHandler returns the status of a job by hash
 func JobStatusHandler(w http.ResponseWriter, r *http.Request) {
+	logger.Debugf("Job status request: method=%s, remoteAddr=%s", r.Method, r.RemoteAddr)
+
 	if r.Method != http.MethodGet {
+		logger.Warnf("Invalid method for status endpoint: %s", r.Method)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
 	hash := r.URL.Query().Get("hash")
 	if hash == "" {
+		logger.Warn("Missing hash parameter in status request")
 		http.Error(w, "Missing hash parameter", http.StatusBadRequest)
 		return
 	}
 
+	logger.Debugf("Checking status for job: %s", hash)
 	state, exists := job.GetJobState(hash)
 	if !exists {
+		logger.Warnf("Job not found: %s", hash)
 		http.Error(w, fmt.Sprintf("Job with hash %s not found", hash), http.StatusNotFound)
 		return
 	}
@@ -48,6 +55,8 @@ func JobStatusHandler(w http.ResponseWriter, r *http.Request) {
 		stateStr = "unknown"
 	}
 
+	logger.Debugf("Job status: hash=%s, state=%s", hash, stateStr)
+
 	response := JobStatusResponse{
 		Hash:  hash,
 		State: stateStr,
@@ -55,5 +64,10 @@ func JobStatusHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		logger.Errorf("Failed to encode status response: %v", err)
+		return
+	}
+
+	logger.Debug("Job status request completed successfully")
 }

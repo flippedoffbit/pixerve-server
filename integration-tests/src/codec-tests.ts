@@ -37,11 +37,11 @@ export class CodecFormatTests {
     private results: TestResults;
     private logger: Logger;
 
-    constructor(baseUrl = 'http://localhost:8080') {
+    constructor(baseUrl = 'http://localhost:8080', logLevel: LogLevel = LogLevel.DEBUG) {
         this.baseUrl = baseUrl;
         this.server = new PixerveServer(baseUrl);
         this.results = new TestResults();
-        this.logger = new Logger(LogLevel.DEBUG, 'CODEC');
+        this.logger = new Logger(logLevel, 'CODEC');
     }
 
     async runAll (): Promise<void> {
@@ -74,15 +74,22 @@ export class CodecFormatTests {
 
     private async setup (): Promise<void> {
         this.logger.info('Setting up codec and format tests');
+        this.logger.debug('Ensuring test images directory exists');
         ImageUtils.ensureTestImagesDir();
+        this.logger.debug('Starting Pixerve server');
         await this.server.start();
+        this.logger.debug('Waiting for server to be ready');
         await this.server.waitForReady();
+        this.logger.info('Codec and format tests setup completed');
     }
 
     private async cleanup (): Promise<void> {
         this.logger.info('Cleaning up codec and format tests');
+        this.logger.debug('Stopping Pixerve server');
         await this.server.stop();
+        this.logger.debug('Cleaning up test images');
         ImageUtils.cleanupTestImages();
+        this.logger.info('Codec and format tests cleanup completed');
     }
 
     private async testJPGFormats (): Promise<void> {
@@ -100,13 +107,14 @@ export class CodecFormatTests {
 
     private async testJPGConversion (quality: number, size: number[]): Promise<void> {
         const testName = `JPG Quality ${ quality } Size ${ size.join('x') }`;
+        this.logger.info('Testing JPG conversion', { quality, size: size.join('x') });
         const endTimer = this.results.startTest(testName);
 
         try {
-            // Download a test image from Lorem Picsum
+            this.logger.debug('Downloading test image from Lorem Picsum', { quality, size: size.join('x') });
             const imagePath = await ImageUtils.downloadLoremPicsumImage(1000, 800, `jpg-test-${ quality }-${ size.join('x') }.jpg`);
 
-            // Create job spec for JPG conversion
+            this.logger.debug('Creating job spec for JPG conversion', { quality, size: size.join('x') });
             const jobSpec: JobSpec = {
                 priority: 0,
                 keepOriginal: false,
@@ -120,11 +128,12 @@ export class CodecFormatTests {
                 subDir: `codec-tests/jpg-q${ quality }`,
             };
 
-            // Upload and wait for completion
+            this.logger.debug('Uploading image and waiting for completion', { quality, size: size.join('x') });
             const hash = await this.uploadImage(imagePath, jobSpec);
             const result = await this.waitForCompletion(hash);
 
             if (result.status === 'success') {
+                this.logger.info('JPG conversion test passed', { quality, size: size.join('x'), fileCount: result.file_count, hash });
                 this.results.recordPass(testName, 0, {
                     quality,
                     size,
@@ -133,10 +142,12 @@ export class CodecFormatTests {
                 });
             } else {
                 const error = 'error' in result ? result.error : 'Unknown error';
+                this.logger.warn('JPG conversion test failed', { quality, size: size.join('x'), error });
                 throw new Error(`Job failed: ${ error }`);
             }
 
         } catch (error) {
+            this.logger.error('JPG conversion test failed with exception', { quality, size: size.join('x'), error: (error as Error).message });
             this.results.recordFail(testName, 0, (error as Error).message);
         } finally {
             endTimer();
@@ -525,8 +536,10 @@ export class CodecFormatTests {
 
     // Helper methods
     private async uploadImage (imagePath: string, jobSpec: JobSpec): Promise<string> {
+        this.logger.debug('Creating JWT for image upload', { imagePath: path.basename(imagePath) });
         const jwt = await JWTUtils.createJWT(jobSpec);
 
+        this.logger.debug('Preparing form data for upload', { imagePath: path.basename(imagePath) });
         const form = new FormData();
         form.append('token', jwt);
         form.append('file', fs.createReadStream(imagePath), {
@@ -534,13 +547,16 @@ export class CodecFormatTests {
             contentType: ImageUtils.getContentType(imagePath),
         });
 
+        this.logger.debug('Uploading image to server', { imagePath: path.basename(imagePath) });
         const response = await HTTPUtils.post(`${ this.baseUrl }/upload`, form);
         const responseData: UploadResponse = response.data;
 
         if (!responseData.hash) {
+            this.logger.error('Upload response missing hash', { imagePath: path.basename(imagePath) });
             throw new Error('Upload response missing hash');
         }
 
+        this.logger.debug('Image uploaded successfully', { hash: responseData.hash, imagePath: path.basename(imagePath) });
         return responseData.hash;
     }
 
@@ -550,12 +566,15 @@ export class CodecFormatTests {
 
     private async waitForCompletion (hash: string, maxWaitSeconds = 120): Promise<SuccessResponse | FailureResponse> {
         const startTime = Date.now();
+        this.logger.debug('Waiting for job completion', { hash, maxWaitSeconds });
 
         while (Date.now() - startTime < maxWaitSeconds * 1000) {
+            this.logger.trace('Checking job status', { hash, elapsedSeconds: Math.floor((Date.now() - startTime) / 1000) });
             const response = await HTTPUtils.get(`${ this.baseUrl }/success?hash=${ hash }`);
             const responseData: SuccessResponse = response.data;
 
             if (responseData.status === 'success') {
+                this.logger.debug('Job completed successfully', { hash, fileCount: responseData.file_count });
                 return responseData;
             }
 
@@ -564,6 +583,7 @@ export class CodecFormatTests {
             const failureData: any = failureResponse.data;
 
             if (failureData.status === 'failed') {
+                this.logger.warn('Job failed', { hash, error: failureData.error });
                 return failureData;
             }
 
@@ -571,6 +591,7 @@ export class CodecFormatTests {
             await new Promise(resolve => setTimeout(resolve, 2000));
         }
 
+        this.logger.error('Job processing timeout', { hash, maxWaitSeconds });
         throw new Error(`Processing did not complete within ${ maxWaitSeconds } seconds`);
     }
 
