@@ -70,6 +70,12 @@ func main() {
 	http.HandleFunc("/failures/list", routes.FailureListHandler)
 	http.HandleFunc("/success", routes.SuccessQueryHandler)
 	http.HandleFunc("/success/list", routes.SuccessListHandler)
+
+	// Serve static files from direct serve directory
+	serveDir := config.GetDirectServeBaseDir()
+	logger.Infof("Setting up file server for direct serve directory: %s", serveDir)
+	http.Handle("/files/", http.StripPrefix("/files/", http.FileServer(http.Dir(serveDir))))
+
 	logger.Info("HTTP routes registered successfully")
 
 	logger.Infof("Pixerve server starting on port 8080")

@@ -2,7 +2,7 @@
 
 # Build the binary
 build:
-	go build -o pixerve .
+	go build -o pixerve -ldflags "-s -w" .
 
 # Run tests
 test:

@@ -36,3 +36,13 @@ func GetFailuresDBPath() string {
 func GetSuccessDBPath() string {
 	return filepath.Join(GetDataDir(), "success.db")
 }
+
+// GetDirectServeBaseDir returns the base directory for direct file serving
+// Defaults to "./serve" relative to the executable
+func GetDirectServeBaseDir() string {
+	if dir := os.Getenv("PIXERVE_SERVE_DIR"); dir != "" {
+		return dir
+	}
+	// Default to ./serve subdirectory
+	return "./serve"
+}

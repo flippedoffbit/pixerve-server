@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"pixerve/config"
 	"pixerve/encoder"
 	"pixerve/failures"
 	"pixerve/logger"
@@ -241,6 +242,12 @@ func prepareAccessInfo(writerJob models.WriterJob, filename, subDir string) map[
 	// Add filename and subdir
 	accessInfo["filename"] = filename
 	accessInfo["folder"] = subDir
+
+	// Set backend-specific configuration
+	switch writerJob.Type {
+	case "directServe":
+		accessInfo["baseDir"] = config.GetDirectServeBaseDir()
+	}
 
 	return accessInfo
 }
