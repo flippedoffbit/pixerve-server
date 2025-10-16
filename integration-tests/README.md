@@ -178,7 +178,7 @@ Use `--junit results.xml` for CI/CD integration:
 
 ### Project Structure
 
-```
+``` text
 integration-tests/
 ├── src/
 │   ├── common.ts          # Shared utilities and types
