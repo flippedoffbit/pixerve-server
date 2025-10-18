@@ -1,6 +1,4 @@
-package taskqueue
-
-// Backwards-compatible wrapper around the generic DBQueue for the write queue.
+package taskQueue
 
 var WriteQueue *DBQueue
 
